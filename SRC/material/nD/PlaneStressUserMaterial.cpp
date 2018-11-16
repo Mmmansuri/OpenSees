@@ -61,7 +61,7 @@ void* OPS_PlaneStressUserMaterial()
 {
     int argc = OPS_GetNumRemainingInputArgs() + 2;
     if (argc < 6) {
-	opserr << "WARNING: Insufficient arguements\n";
+	opserr << "WARNING: Insufficient arguments\n";
 	opserr << "Want: nDMaterial PlaneStressUserMaterial tag? nstatevs? nprops? prop1? ... propn?" << endln;
 	return 0;
     }
@@ -184,9 +184,7 @@ NDMaterial*
 PlaneStressUserMaterial::getCopy( ) 
 {
   PlaneStressUserMaterial *clone ;   //new instance of this class
-
   clone = new PlaneStressUserMaterial(this->getTag(), nstatevs, nprops, props);
-
   return clone ;
 }
 
@@ -195,7 +193,8 @@ PlaneStressUserMaterial::getCopy( )
 NDMaterial* 
 PlaneStressUserMaterial::getCopy( const char *type ) 
 {
-  if (strcmp(type, this->getType()) == 0)
+  if ((strcmp(type, "PlaneStress") == 0) ||
+      (strcmp(type, "PlaneStress2D") == 0))
     return this->getCopy( ) ;
   else
     return 0;
@@ -319,11 +318,21 @@ PlaneStressUserMaterial::getInitialTangent
 void  
 PlaneStressUserMaterial::Print( OPS_Stream &s, int flag )
 {
-  s << "PlaneStressUserMaterial Material tag: " << this->getTag() << endln ;
-  for (int i = 0; i < nprops; i++)
-  {
-    s << "prop" << i << ":  " << props[i]  << " ";
-  }
+    if (flag == OPS_PRINT_PRINTMODEL_MATERIAL) {
+        s << "PlaneStressUserMaterial tag: " << this->getTag() << endln;
+        for (int i = 0; i < nprops; i++)
+            s << "prop" << i << ":  " << props[i] << " ";
+    }
+    
+    if (flag == OPS_PRINT_PRINTMODEL_JSON) {
+        s << "\t\t\t{";
+        s << "\"name\": \"" << this->getTag() << "\", ";
+        s << "\"type\": \"PlaneStressUserMaterial\", ";
+        s << "\"properties\": [";
+        for (int i = 0; i < nprops-1; i++)
+            s << props[i] << ", ";
+        s << props[nprops-1] << "]}";
+    }
 }
 
 

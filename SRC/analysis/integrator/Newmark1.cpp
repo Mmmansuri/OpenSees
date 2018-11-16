@@ -345,7 +345,7 @@ Newmark1::update(const Vector &deltaU)
 
   // check deltaU is of correct size
   if (deltaU.Size() != U->Size()) {
-    opserr << "WARNING Newmark1::update() - Vectors of incompatable size ";
+    opserr << "WARNING Newmark1::update() - Vectors of incompatible size ";
     opserr << " expecting " << U->Size() << " obtained " << deltaU.Size() << endln;
     return -3;
   }
@@ -369,6 +369,12 @@ Newmark1::update(const Vector &deltaU)
 		    
   return 0;
 }    
+
+const Vector &
+Newmark1::getVel()
+{
+  return *Udot;
+}
 
 int
 Newmark1::sendSelf(int cTag, Channel &theChannel)

@@ -79,6 +79,19 @@ class EPPGapMaterial : public UniaxialMaterial
     
     void Print(OPS_Stream &s, int flag =0);
     
+    // AddingSensitivity:BEGIN //////////////////////////////////////////
+    int setParameter (const char **argv, int argc, Parameter &param);
+    int    updateParameter          (int parameterID, Information &info);
+    int    activateParameter        (int parameterID);
+    double getStressSensitivity     (int gradIndex, bool conditional);
+    double getTangentSensitivity    (int gradIndex);
+    double getInitialTangentSensitivity    (int gradIndex);
+    int    commitSensitivity        (double strainGradient, int gradIndex, int numGrads);
+    // AddingSensitivity:END ///////////////////////////////////////////
+
+	//by SAJalali
+	virtual double getEnergy() { return Energy; }
+
   protected:
     
   private:
@@ -94,6 +107,15 @@ class EPPGapMaterial : public UniaxialMaterial
 
     double trialStress;      // current trial stress
     double trialTangent;     // current trial tangent
+
+// AddingSensitivity:BEGIN //////////////////////////////////////////
+    int parameterID;
+    Matrix *SHVs;
+// AddingSensitivity:END ///////////////////////////////////////////
+
+	//added by SAJalali
+	double commitStress;      // prev. trial stress
+	double Energy, EnergyP;
 };
 
 

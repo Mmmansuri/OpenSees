@@ -35,7 +35,7 @@
 
 // Description: This file contains the class definition for 
 // NewtonRaphson. NewtonRaphson is a class which performs a Newton-Raphson 
-// solution algorihm in solving the equations.
+// solution algorithm in solving the equations.
 // No member functions are declared as virtual as 
 // it is not expected that this class will be subclassed.
 // 
@@ -48,25 +48,29 @@
 class NewtonRaphson: public EquiSolnAlgo
 {
   public:
-    NewtonRaphson(int tangent = CURRENT_TANGENT);    
-    NewtonRaphson(ConvergenceTest &theTest, int tangent = CURRENT_TANGENT);
-    ~NewtonRaphson();
-
-    int solveCurrentStep(void);    
+  NewtonRaphson();
+  NewtonRaphson(int tangent, double iFactor = 0.0, double cFactor = 1.0);    
+  NewtonRaphson(ConvergenceTest &theTest, int tangent = CURRENT_TANGENT, double iFactor = 0.0, double cFactor = 1.0);
+  ~NewtonRaphson();
+  
+  int solveCurrentStep(void);    
     
-    virtual int sendSelf(int commitTag, Channel &theChannel);
-    virtual int recvSelf(int commitTag, Channel &theChannel, 
-			 FEM_ObjectBroker &theBroker);
-    void Print(OPS_Stream &s, int flag =0);    
-
-    int getNumIterations(void);
-    
-  protected:
-
-    
-  private:
-    int tangent;
-    int numIterations;
+  virtual int sendSelf(int commitTag, Channel &theChannel);
+  virtual int recvSelf(int commitTag, Channel &theChannel, 
+		       FEM_ObjectBroker &theBroker);
+  void Print(OPS_Stream &s, int flag =0);    
+  
+  int getNumIterations(void);
+  
+ protected:
+  
+  
+ private:
+  int tangent;
+  int numIterations;
+  
+  double iFactor;
+  double cFactor;
 };
 
 #endif

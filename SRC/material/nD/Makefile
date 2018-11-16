@@ -3,7 +3,9 @@ include ../../../Makefile.def
 #	ElasticCrossAnisotropic.o \
 
 ifdef DAMAGE2P_FLAG
-	DAMAGE_2P = Damage2p.o Damage2p3D.o Damage2ppstress.o
+	DAMAGE_2P = Damage2p.o Damage2p3D.o Damage2ppstress.o \
+	Concrete.o CPlaneStress.o CPlaneStrain.o CPlaneStress2d.o \
+	CThreeDimensional.o
 else
 	DAMAGE_2P =
 endif
@@ -14,11 +16,21 @@ else
 	PLAINCONCRETE =
 endif
 
+#	PlasticDamageConcretePlaneStress.o \
+
 OBJS       = NDMaterial.o \
 	$(DAMAGE_2P) $(PLAINCONCRETE) BeamFiberMaterial.o \
+	PlasticDamageConcretePlaneStress.o \
 	BeamFiberMaterial2d.o \
+	BeamFiberMaterial2dPS.o \
 	PlasticDamageConcrete3d.o \
 	LinearCap.o \
+	eig3.o \
+	Faria1998.o \
+	Faria1998PlaneStrain.o \
+	Faria1998PlaneStress.o \
+	Faria1998PlaneStress2d.o \
+	Faria1998ThreeDimensional.o \
 	FSAM.o \
 	AcousticMedium.o \
 	ElasticIsotropicAxiSymm.o\
@@ -40,13 +52,16 @@ OBJS       = NDMaterial.o \
 	J2PlateFiber.o \
 	J2PlateFibre.o \
 	J2BeamFiber2d.o \
+	J2BeamFiber3d.o \
 	J2ThreeDimensional.o \
 	PlaneStrainMaterial.o \
 	PlaneStressMaterial.o \
 	PlaneStressUserMaterial.o \
 	PlateFiberMaterial.o \
 	PlateFromPlaneStressMaterial.o \
+	PlaneStressLayeredMaterial.o \
 	PlateRebarMaterial.o \
+	PlaneStressRebarMaterial.o \
 	CycLiqCP.o \
 	CycLiqCP3D.o \
 	CycLiqCPPlaneStrain.o \
@@ -63,7 +78,18 @@ OBJS       = NDMaterial.o \
 	SimplifiedJ2.o \
 	LinearCap.o \
 	AcousticMedium.o \
-	PlaneStressSimplifiedJ2.o
+	PlaneStressSimplifiedJ2.o \
+	DruckerPrager3DThermal.o \
+	DruckerPragerThermal.o \
+	ElasticIsotropic3DThermal.o \
+	ElasticIsotropicMaterialThermal.o \
+	J2PlasticityThermal.o \
+	J2ThreeDimensionalThermal.o \
+	PlateFiberMaterialThermal.o \
+	PlateFromPlaneStressMaterialThermal.o \
+	UVCmultiaxial.o	\
+	UVCplanestress.o \
+	PlateRebarMaterialThermal.o
 
 
 all: $(OBJS) 
@@ -81,7 +107,7 @@ tidy:
 	@$(RM) $(RMFLAGS) Makefile.bak *~ #*# core
 
 clean: tidy
-	@$(RM) $(RMFLAGS) $(OBJS) *.o
+	@$(RM) $(RMFLAGS) $(OBJS) *.o *.mod
 	@$(RM) $(RMFLAGS) .inslog*
 	@$(RM) $(RMFLAGS) tca.map
 

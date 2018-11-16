@@ -107,8 +107,12 @@ void* OPS_ZeroLength()
         int mtag;
         numdata = 1;
 	// the first one not an int
+	int numArgs = OPS_GetNumRemainingInputArgs();
         if (OPS_GetIntInput(&numdata,&mtag) < 0) {
-	    OPS_ResetCurrentInputArg(-1); // move current arg back by one
+	    if (numArgs > OPS_GetNumRemainingInputArgs()) {
+		// move current arg back by one
+		OPS_ResetCurrentInputArg(-1); 
+	    }
 	    break;
         }
 	matTags[numMats] = mtag;
@@ -192,7 +196,7 @@ void* OPS_ZeroLength()
 	    }
 	  }
 
-	} else if (strcmp(type,"orient") == 0) {
+	} else if (strcmp(type,"-orient") == 0) {
 	    if (OPS_GetNumRemainingInputArgs() < 6) {
 		opserr<<"WARNING: insufficient orient values\n";
 		return 0;
@@ -218,7 +222,7 @@ void* OPS_ZeroLength()
     // return the memory we stole and return OK
     delete [] theMats;    
     delete [] theDampMats;
-    
+
     return theEle;
 }
 
@@ -456,23 +460,24 @@ ZeroLength::~ZeroLength()
   int numMat = numMaterials1d;
   if (useRayleighDamping == 2)
     numMat *= 2;
-    for (int mat=0; mat<numMat; mat++) 
-	delete theMaterial1d[mat];
 
-    // delete memory of 1d materials    
-    if (theMaterial1d != 0)
-	delete [] theMaterial1d;
-
-    if (t1d != 0)
-	delete t1d;
-    if (dir1d != 0 )
-	delete dir1d;
-
-    if (d0 != 0)
-      delete d0;
-
-    if (v0 != 0)
-      delete v0;
+  for (int mat=0; mat<numMat; mat++) 
+    delete theMaterial1d[mat];
+  
+  // delete memory of 1d materials    
+  if (theMaterial1d != 0)
+    delete [] theMaterial1d;
+  
+  if (t1d != 0)
+    delete t1d;
+  if (dir1d != 0 )
+    delete dir1d;
+  
+  if (d0 != 0)
+    delete d0;
+  
+  if (v0 != 0)
+    delete v0;
 }
 
 
@@ -1145,7 +1150,6 @@ ZeroLength::displaySelf(Renderer &theViewer, int displayMode, float fact, const 
     static Vector v2(3);
 
     float d1 = 1.0;
-    float d2 = 1.0;
 
     if (displayMode == 1 || displayMode == 2) {
 
@@ -1175,29 +1179,80 @@ ZeroLength::Print(OPS_Stream &s, int flag)
     // compute the strain and axial force in the member
     double strain=0.0;
     double force =0.0;
-    
+     
     for (int i=0; i<numDOF; i++)
 	(*theVector)(i) = (*t1d)(0,i)*force;
+    
+    if (flag == OPS_PRINT_CURRENTSTATE) { // print everything
+        s << "Element: " << this->getTag();
+        s << " type: ZeroLength  iNode: " << connectedExternalNodes(0);
+        s << " jNode: " << connectedExternalNodes(1) << endln;
+        for (int j = 0; j < numMaterials1d; j++) {
+            s << "\tMaterial1d, tag: " << theMaterial1d[j]->getTag()
+                << ", dir: " << (*dir1d)(j) << endln;
+            s << *(theMaterial1d[j]);
+        }
+        if (useRayleighDamping == 2) {
+            s << "Damping Materials:\n";
+            for (int j = numMaterials1d; j < 2 * numMaterials1d; j++) {
+                s << "\tMaterial1d, tag: " << theMaterial1d[j]->getTag()
+                    << ", dir: " << (*dir1d)(j) << endln;
+                s << *(theMaterial1d[j]);
+            }
+        }
+    }
+     
+    else if (flag == 1) {
+        s << this->getTag() << "  " << strain << "  ";
+    }
 
-    if (flag == 0) { // print everything
-	s << "Element: " << this->getTag(); 
-	s << " type: ZeroLength  iNode: " << connectedExternalNodes(0);
-	s << " jNode: " << connectedExternalNodes(1) << endln;
-	for (int j = 0; j < numMaterials1d; j++) {
-		s << "\tMaterial1d, tag: " << theMaterial1d[j]->getTag() 
-			<< ", dir: " << (*dir1d)(j) << endln;
-		s << *(theMaterial1d[j]);
-	}
-	if (useRayleighDamping == 2) {
-	  s << "Damping Materials:\n";
-	  for (int j = numMaterials1d; j < 2*numMaterials1d; j++) {
-	    s << "\tMaterial1d, tag: " << theMaterial1d[j]->getTag() 
-	      << ", dir: " << (*dir1d)(j) << endln;
-	    s << *(theMaterial1d[j]);
-	  }
-	}
-    } else if (flag == 1) {
-	s << this->getTag() << "  " << strain << "  ";
+    if (flag == OPS_PRINT_PRINTMODEL_JSON) {
+        s << "\t\t\t{";
+        s << "\"name\": " << this->getTag() << ", ";
+        s << "\"type\": \"ZeroLength\", ";
+        s << "\"nodes\": [" << connectedExternalNodes(0) << ", " << connectedExternalNodes(1) << "], ";
+        s << "\"materials\": [";
+        for (int i = 0; i < numMaterials1d - 1; i++)
+            s << "\"" << theMaterial1d[i]->getTag() << "\", ";
+        s << "\"" << theMaterial1d[numMaterials1d - 1]->getTag() << "\"], ";
+        s << "\"dof\": [";
+        for (int i = 0; i < numMaterials1d - 1; i++) {
+            if ((*dir1d)(i) == 0)
+                s << "\"P\", ";
+            else if ((*dir1d)(i) == 1)
+                s << "\"Vy\", ";
+            else if ((*dir1d)(i) == 2)
+                s << "\"Vz\", ";
+            else if ((*dir1d)(i) == 3)
+                s << "\"T\", ";
+            else if ((*dir1d)(i) == 4)
+                s << "\"My\", ";
+            else if ((*dir1d)(i) == 5)
+                s << "\"Mz\", ";
+        }
+        if ((*dir1d)(numMaterials1d - 1) == 0)
+            s << "\"P\"], ";
+        else if ((*dir1d)(numMaterials1d - 1) == 1)
+            s << "\"Vy\"], ";
+        else if ((*dir1d)(numMaterials1d - 1) == 2)
+            s << "\"Vz\"], ";
+        else if ((*dir1d)(numMaterials1d - 1) == 3)
+            s << "\"T\"], ";
+        else if ((*dir1d)(numMaterials1d - 1) == 4)
+            s << "\"My\"], ";
+        else if ((*dir1d)(numMaterials1d - 1) == 5)
+            s << "\"Mz\"], ";
+        s << "\"transMatrix\": [[";
+        for (int i = 0; i < 3; i++) {
+            for (int j = 0; j < 3; j++) {
+                if (j < 2)
+                    s << transformation(i, j) << ", ";
+                else if (j == 2 && i < 2)
+                    s << transformation(i, j) << "], [";
+                else if (j == 2 && i == 2)
+                    s << transformation(i, j) << "]]}";
+            }
+        }
     }
 }
 
@@ -1217,7 +1272,7 @@ ZeroLength::setResponse(const char **argv, int argc, OPS_Stream &output)
     if ((strcmp(argv[0],"force") == 0) || (strcmp(argv[0],"forces") == 0) 
         || (strcmp(argv[0],"globalForces") == 0) || (strcmp(argv[0],"globalforces") == 0)) {
 
-            char outputData[10];
+            char outputData[20];
             int numDOFperNode = numDOF/2;
             for (int i=0; i<numDOFperNode; i++) {
                 sprintf(outputData,"P1_%d", i+1);
@@ -1463,7 +1518,7 @@ ZeroLength::setUp( int Nd1, int Nd2,
     if ( x.Size() != 3 || yp.Size() != 3 )
 	opserr << "FATAL ZeroLength::setUp - incorrect dimension of orientation vectors\n";
 
-    // establish orientation of element for the tranformation matrix
+    // establish orientation of element for the transformation matrix
     // z = x cross yp
     Vector z(3);
     z(0) = x(1)*yp(2) - x(2)*yp(1);

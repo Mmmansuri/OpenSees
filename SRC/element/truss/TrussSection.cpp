@@ -673,7 +673,7 @@ TrussSection::addInertiaLoadToUnbalance(const Vector &accel)
 #ifdef _G3DEBUG    
   if (nodalDOF != Raccel1.Size() || nodalDOF != Raccel2.Size()) {
     opserr <<"TrussSection::addInertiaLoadToUnbalance " <<
-      "matrix and vector sizes are incompatable\n";
+      "matrix and vector sizes are incompatible\n";
     return -1;
   }
 #endif
@@ -724,6 +724,9 @@ TrussSection::getResistingForce()
       (*theVector)(i+numDOF2) = temp;
     }
 
+    // subtract external load
+    (*theVector) -= *theLoad;
+  
     return *theVector;
 }
 
@@ -733,9 +736,6 @@ const Vector &
 TrussSection::getResistingForceIncInertia()
 {	
   this->getResistingForce();
-  
-  // subtract external load
-  (*theVector) -= *theLoad;
   
   // now include the mass portion
   if (L != 0.0 && rho != 0.0) {
@@ -1039,23 +1039,34 @@ TrussSection::Print(OPS_Stream &s, int flag)
 			(*theVector)(i+numDOF2) = force;
 		}
 	}
+     
+    if (flag == OPS_PRINT_CURRENTSTATE) { // print everything
+        s << "Element: " << this->getTag();
+        s << " type: TrussSection  iNode: " << connectedExternalNodes(0);
+        s << " jNode: " << connectedExternalNodes(1);
+        s << " Mass density/length: " << rho;
+        s << " cMass: " << cMass;
+        
+        s << " \n\t strain: " << strain;
+        s << " axial load: " << force;
+        if (theVector != 0)
+            s << " \n\t unbalanced load: " << *theVector;
+        s << " \t Section: " << *theSection;
+        s << endln;
+    }
     
-    if (flag == 0) { // print everything
-	s << "Element: " << this->getTag(); 
-	s << " type: TrussSection  iNode: " << connectedExternalNodes(0);
-	s << " jNode: " << connectedExternalNodes(1);
-	s << " Mass density/length: " << rho;
-	s << " cMass: " << cMass;
-
-	s << " \n\t strain: " << strain;
-	s << " axial load: " << force;
-	if (theVector != 0) 
-	    s << " \n\t unbalanced load: " << *theVector;	
-	s << " \t Section: " << *theSection;
-	s << endln;
-    } else if (flag == 1) {
-	s << this->getTag() << "  " << strain << "  ";
-	s << force << endln;
+    if (flag == 1) {
+        s << this->getTag() << "  " << strain << "  ";
+        s << force << endln;
+    }
+    
+    if (flag == OPS_PRINT_PRINTMODEL_JSON) {
+        s << "\t\t\t{";
+        s << "\"name\": " << this->getTag() << ", ";
+        s << "\"type\": \"TrussSection\", ";
+        s << "\"nodes\": [" << connectedExternalNodes(0) << ", " << connectedExternalNodes(1) << "], ";
+        s << "\"massperlength\": " << rho << ", ";
+        s << "\"section\": \"" << theSection->getTag() << "\"}";
     }
 }
 
@@ -1125,7 +1136,7 @@ TrussSection::setResponse(const char **argv, int argc, OPS_Stream &output)
 
     } else if (strcmp(argv[0],"basicStiffness") == 0) {
 
-            output.tag("ResponseType", "U");
+            output.tag("ResponseType", "K");
             theResponse = new ElementResponse(this, 4, Matrix(1,1));
 
     // a section quantity
@@ -1611,7 +1622,7 @@ TrussSection::addInertiaLoadSensitivityToUnbalance(const Vector &accel, bool som
 #ifdef _G3DEBUG    
     if (nodalDOF != Raccel1.Size() || nodalDOF != Raccel2.Size()) {
       opserr << "Truss::addInertiaLoadToUnbalance " <<
-	"matrix and vector sizes are incompatable\n";
+	"matrix and vector sizes are incompatible\n";
       return -1;
     }
 #endif
@@ -1645,7 +1656,7 @@ TrussSection::addInertiaLoadSensitivityToUnbalance(const Vector &accel, bool som
 #ifdef _G3DEBUG    
     if (nodalDOF != Raccel1.Size() || nodalDOF != Raccel2.Size()) {
       opserr << "Truss::addInertiaLoadToUnbalance " <<
-	"matrix and vector sizes are incompatable\n";
+	"matrix and vector sizes are incompatible\n";
       return -1;
     }
 #endif

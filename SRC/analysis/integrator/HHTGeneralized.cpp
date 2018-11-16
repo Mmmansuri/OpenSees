@@ -219,7 +219,11 @@ int HHTGeneralized::formEleTangent(FE_Element *theEle)
         theEle->addKtToTang(alphaF*c1);
     else if (statusFlag == INITIAL_TANGENT)
         theEle->addKiToTang(alphaF*c1);
-    
+    else if (statusFlag == HALL_TANGENT)  {
+        theEle->addKtToTang(alphaF*c1*cFactor);
+        theEle->addKiToTang(alphaF*c1*iFactor);    
+    }
+
     theEle->addCtoTang(alphaF*c2);
     theEle->addMtoTang(alphaI*c3);
     
@@ -430,6 +434,12 @@ int HHTGeneralized::commit(void)
     return theModel->commitDomain();
 }
 
+
+const Vector &
+HHTGeneralized::getVel()
+{
+  return *Udot;
+}
 
 int HHTGeneralized::sendSelf(int cTag, Channel &theChannel)
 {

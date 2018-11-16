@@ -796,20 +796,36 @@ FiberSection2d::recvSelf(int commitTag, Channel &theChannel,
 void
 FiberSection2d::Print(OPS_Stream &s, int flag)
 {
-  if (flag== 1 || flag == 2) {
+  if (flag == OPS_PRINT_PRINTMODEL_SECTION || flag == OPS_PRINT_PRINTMODEL_MATERIAL) {
     s << "\nFiberSection2d, tag: " << this->getTag() << endln;
     s << "\tSection code: " << code;
     s << "\tNumber of Fibers: " << numFibers << endln;
     s << "\tCentroid: " << yBar << endln;
-    theMaterials[0]->Print(s, flag);
     
-    if (flag == 2) {
+    if (flag == OPS_PRINT_PRINTMODEL_MATERIAL) {
       for (int i = 0; i < numFibers; i++) {
 	s << "\nLocation (y) = (" << matData[2*i] << ")";
 	s << "\nArea = " << matData[2*i+1] << endln;
 	theMaterials[i]->Print(s, flag);
       }
     }
+  }
+
+  if (flag == OPS_PRINT_PRINTMODEL_JSON) {
+    s << "\t\t\t{";
+	s << "\"name\": \"" << this->getTag() << "\", ";
+	s << "\"type\": \"FiberSection2d\", ";
+    s << "\"fibers\": [\n";
+    for (int i = 0; i < numFibers; i++) {
+      s << "\t\t\t\t{\"coord\": [" << matData[2*i] << ", 0.0], ";
+      s << "\"area\": " << matData[2*i+1] << ", ";
+      s << "\"material\": \"" << theMaterials[i]->getTag() << "\"";
+      if (i < numFibers-1)
+	s << "},\n";
+      else
+	s << "}\n";	
+    }
+    s << "\t\t\t]}";
   }
 }
 
@@ -903,9 +919,9 @@ FiberSection2d::setResponse(const char **argv, int argc,
     int numData = numFibers*5;
     for (int j = 0; j < numFibers; j++) {
       output.tag("FiberOutput");
-      output.attr("yLoc", matData[3*j]);
-      output.attr("zLoc", matData[3*j+1]);
-      output.attr("area", matData[3*j+2]);    
+      output.attr("yLoc", matData[2*j]);
+      output.attr("zLoc", 0.0);
+      output.attr("area", matData[2*j+1]);    
       output.tag("ResponseType","yCoord");
       output.tag("ResponseType","zCoord");
       output.tag("ResponseType","area");
@@ -927,6 +943,10 @@ FiberSection2d::setResponse(const char **argv, int argc,
     int count = 0;
     return theResponse = new MaterialResponse(this, 7, count);
   }
+  //by SAJalali
+  else if ((strcmp(argv[0], "energy") == 0) || (strcmp(argv[0], "Energy") == 0)) {
+	  return theResponse = new MaterialResponse(this, 8, getEnergy());
+  }
 
 // If not a fiber response, call the base class method
 return SectionForceDeformation::setResponse(argv, argc, output);
@@ -942,9 +962,9 @@ FiberSection2d::getResponse(int responseID, Information &sectInfo)
     int count = 0;
     for (int j = 0; j < numFibers; j++) {
       double yLoc, zLoc, A, stress, strain;
-      yLoc = matData[3*j];
-      zLoc = matData[3*j+1];
-      A = matData[3*j+2];
+      yLoc = matData[2*j];
+      zLoc = 0.0;
+      A = matData[2*j+1];
       stress = theMaterials[j]->getStress();
       strain = theMaterials[j]->getStrain();
       data(count) = yLoc; data(count+1) = zLoc; data(count+2) = A;
@@ -974,6 +994,10 @@ FiberSection2d::getResponse(int responseID, Information &sectInfo)
 
     return sectInfo.setInt(count);
   } 
+  //by SAJalali
+  else if (responseID == 8) {
+	  return sectInfo.setDouble(getEnergy());
+  }
 
   return SectionForceDeformation::getResponse(responseID, sectInfo);
 }
@@ -1056,7 +1080,7 @@ FiberSection2d::setParameter(const char **argv, int argc, Parameter &param)
   }
 
   // Check if it belongs to the section integration
-  else if (strstr(argv[0],"integration") != 0) {
+  if (strstr(argv[0],"integration") != 0) {
     if (sectionIntegr != 0)
       return sectionIntegr->setParameter(&argv[1], argc-1, param);
     else
@@ -1064,7 +1088,7 @@ FiberSection2d::setParameter(const char **argv, int argc, Parameter &param)
   }
 
   int ok = 0;
-  
+
   for (int i = 0; i < numFibers; i++) {
     ok = theMaterials[i]->setParameter(argv, argc, param);
     if (ok != -1)
@@ -1274,3 +1298,25 @@ FiberSection2d::commitSensitivity(const Vector& defSens,
 }
 
 // AddingSensitivity:END ///////////////////////////////////
+
+//by SAJalali
+double FiberSection2d::getEnergy() const
+{
+	static double fiberArea[10000];
+
+	if (sectionIntegr != 0) {
+		sectionIntegr->getFiberWeights(numFibers, fiberArea);
+	}
+	else {
+		for (int i = 0; i < numFibers; i++) {
+			fiberArea[i] = matData[2 * i + 1];
+		}
+	}
+	double energy = 0;
+	for (int i = 0; i < numFibers; i++)
+	{
+		double A = fiberArea[i];
+		energy += A * theMaterials[i]->getEnergy();
+	}
+	return energy;
+}

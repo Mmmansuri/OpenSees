@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
       <Configuration>Debug</Configuration>
@@ -14,15 +14,18 @@
     <ProjectGuid>{0775A4B2-93D2-4440-83B7-C1DF58021602}</ProjectGuid>
     <SccProjectName />
     <SccLocalPath />
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v142</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v142</PlatformToolset>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
@@ -44,38 +47,53 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>..\..\..\src\tagged\storage;c:\Program Files\tcl\include;..\..\..\src\damage;..\..\..\src\recorder\response;..\..\..\src\ndarray;..\..\..\src\modelbuilder;..\..\..\src;..\..\..\src\actor\actor;..\..\..\src\element;..\..\..\src\tagged;..\..\..\src\modelbuilder\tcl;..\..\..\src\handler;..\..\..\src\matrix;..\..\..\src\domain\component;c:\Program Files\Tcl\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\..\src\tagged\storage;..\..\..\src\damage;..\..\..\src\recorder\response;..\..\..\src\ndarray;..\..\..\src\modelbuilder;..\..\..\src;..\..\..\src\actor\actor;..\..\..\src\element;..\..\..\src\tagged;..\..\..\src\modelbuilder\tcl;..\..\..\src\handler;..\..\..\src\matrix;..\..\..\src\domain\component;c:\Program Files (x86)\tcl;c:\Program Files (x86)\tcl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_TCL85;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MinimalRebuild>true</MinimalRebuild>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
-      <PrecompiledHeader>
-      </PrecompiledHeader>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
-      <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <SuppressStartupBanner>true</SuppressStartupBanner>
+      <PrecompiledHeaderOutputFile>.\..\..\obj\damage\debug/damage.pch</PrecompiledHeaderOutputFile>
+      <AssemblerListingLocation>.\..\..\obj\damage\debug/</AssemblerListingLocation>
+      <ObjectFileName>.\..\..\obj\damage\debug/</ObjectFileName>
+      <ProgramDataBaseFileName>.\..\..\obj\damage\debug/</ProgramDataBaseFileName>
+      <BrowseInformation>true</BrowseInformation>
     </ClCompile>
     <Lib>
-      <OutputFile>$(OutDir)damage.lib</OutputFile>
+      <OutputFile>.\..\..\lib\debug\damage.lib</OutputFile>
     </Lib>
+    <BuildLog>
+      <Path>.\..\..\obj\damage\debug\$(MSBuildProjectName).log</Path>
+    </BuildLog>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
       <Optimization>MaxSpeed</Optimization>
       <InlineFunctionExpansion>OnlyExplicitInline</InlineFunctionExpansion>
       <OmitFramePointers>true</OmitFramePointers>
-      <AdditionalIncludeDirectories>..\..\..\src\tagged\storage;c:\Program Files\tcl\include;..\..\..\src\damage;..\..\..\src\recorder\response;..\..\..\src\ndarray;..\..\..\src\modelbuilder;..\..\..\src;..\..\..\src\actor\actor;..\..\..\src\element;..\..\..\src\tagged;..\..\..\src\modelbuilder\tcl;..\..\..\src\handler;..\..\..\src\matrix;..\..\..\src\domain\component;c:\Program Files\Tcl\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\..\src\tagged\storage;..\..\..\src\damage;..\..\..\src\recorder\response;..\..\..\src\ndarray;..\..\..\src\modelbuilder;..\..\..\src;..\..\..\src\actor\actor;..\..\..\src\element;..\..\..\src\tagged;..\..\..\src\modelbuilder\tcl;..\..\..\src\handler;..\..\..\src\matrix;..\..\..\src\domain\component;c:\Program Files (x86)\tcl;c:\Program Files (x86)\tcl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_TCL85;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <FunctionLevelLinking>true</FunctionLevelLinking>
-      <PrecompiledHeader>
-      </PrecompiledHeader>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <SuppressStartupBanner>true</SuppressStartupBanner>
+      <PrecompiledHeaderOutputFile>.\..\..\obj\damage\release/damage.pch</PrecompiledHeaderOutputFile>
+      <AssemblerListingLocation>.\..\..\obj\damage\release/</AssemblerListingLocation>
+      <ObjectFileName>.\..\..\obj\damage\release/</ObjectFileName>
+      <ProgramDataBaseFileName>.\..\..\obj\damage\release/</ProgramDataBaseFileName>
     </ClCompile>
     <Lib>
-      <OutputFile>$(OutDir)damage.lib</OutputFile>
+      <OutputFile>.\..\..\lib\release\damage.lib</OutputFile>
     </Lib>
+    <BuildLog>
+      <Path>.\..\..\obj\damage\release\$(MSBuildProjectName).log</Path>
+    </BuildLog>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\SRC\damage\DamageModel.cpp" />

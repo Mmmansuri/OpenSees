@@ -84,6 +84,7 @@ class ForceBeamColumn3d: public Element
 		    int maxNumIters = 10, double tolerance = 1.0e-12);
   
   ~ForceBeamColumn3d();
+
   const char *getClassType(void) const {return "ForceBeamColumn3d";};
   
   int getNumExternalNodes(void) const;
@@ -130,7 +131,12 @@ class ForceBeamColumn3d: public Element
   int getResponseSensitivity(int responseID, int gradNumber,
 			     Information &eleInformation);
   // AddingSensitivity:END ///////////////////////////////////////////
-
+#if _DLL
+  BeamIntegration* beamIntegr;
+  int numSections;
+  SectionForceDeformation** sections;          // array of pointers to sections
+  CrdTransf* crdTransf;        // pointer to coordinate tranformation object 
+#endif
  protected:
   void setSectionPointers(int numSections, SectionForceDeformation **secPtrs);
   int getInitialFlexibility(Matrix &fe);
@@ -151,10 +157,12 @@ class ForceBeamColumn3d: public Element
   // internal data
   ID     connectedExternalNodes; // tags of the end nodes
 
-  BeamIntegration *beamIntegr;
+#if !_DLL
+  BeamIntegration* beamIntegr;
   int numSections;
-  SectionForceDeformation **sections;          // array of pointers to sections
-  CrdTransf *crdTransf;        // pointer to coordinate tranformation object 
+  SectionForceDeformation** sections;          // array of pointers to sections
+  CrdTransf* crdTransf;        // pointer to coordinate tranformation object 
+#endif
   // (performs the transformation between the global and basic system)
   double rho;                    // mass density per unit length
   int    maxIters;               // maximum number of local iterations
@@ -167,29 +175,26 @@ class ForceBeamColumn3d: public Element
   Matrix kv;                     // stiffness matrix in the basic system 
   Vector Se;                     // element resisting forces in the basic system
   
-  Matrix kvcommit;               // commited stiffness matrix in the basic system
-  Vector Secommit;               // commited element end forces in the basic system
+  Matrix kvcommit;               // committed stiffness matrix in the basic system
+  Vector Secommit;               // committed element end forces in the basic system
   
   Matrix *fs;                    // array of section flexibility matrices
   Vector *vs;                    // array of section deformation vectors
   Vector *Ssr;                   // array of section resisting force vectors
   
-  Vector *vscommit;              // array of commited section deformation vectors
+  Vector *vscommit;              // array of committed section deformation vectors
   
   enum {maxNumEleLoads = 100};
-  enum {NDM = 2};         // dimension of the problem (2d)
-  enum {NND = 3};         // number of nodal dof's
-  enum {NEGD = 6};         // number of element global dof's
-  enum {NEBD = 3};         // number of element dof's in the basic system
+  enum {NDM = 3};         // dimension of the problem (3d)
+  enum {NND = 6};         // number of nodal dof's
+  enum {NEGD = 12};        // number of element global dof's
+  enum {NEBD = 6};         // number of element dof's in the basic system
 
   int numEleLoads; // Number of element load objects
   int sizeEleLoads;
   ElementalLoad **eleLoads;
   double *eleLoadFactors;
-
-  Matrix *sp;
-  double p0[5]; // Reactions in the basic system due to element loads
-  double v0[5]; // Initial deformations due to element loads
+  Vector load;
 
   Matrix *Ki;
 

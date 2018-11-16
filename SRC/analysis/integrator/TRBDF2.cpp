@@ -27,7 +27,7 @@
 //
 // Description: This file contains the implementation of the TRBDF2 class.
 // ref: K.J.Bathe, "Conserving Energy and Momentum in Nonlinear Dynamics: A Simple
-//      Implicit Time Integration Scheme", Computers ans Structures 85(2007),437-445
+//      Implicit Time Integration Scheme", Computers and Structures 85(2007),437-445
 //
 // NOTE: In the implementation we use deltaT as opposed to deltaT/2 in the paper.
 //
@@ -182,7 +182,14 @@ int TRBDF2::formEleTangent(FE_Element *theEle)
         theEle->addKiToTang(c1);
         theEle->addCtoTang(c2);
         theEle->addMtoTang(c3);
-    }
+    } else if (statusFlag == HALL_TANGENT)  {
+        theEle->addKtToTang(c1*cFactor);
+        theEle->addKiToTang(c1*iFactor);
+        theEle->addCtoTang(c2);
+        theEle->addMtoTang(c3);
+    } else {
+      opserr << "TRBDF2::formEleTangent - unknown FLAG\n";
+    }    
     
     return 0;
 }    
@@ -355,6 +362,12 @@ int TRBDF2::update(const Vector &deltaU)
     return 0;
 }    
 
+
+const Vector &
+TRBDF2::getVel()
+{
+  return *Udot;
+}
 
 int TRBDF2::sendSelf(int cTag, Channel &theChannel)
 {

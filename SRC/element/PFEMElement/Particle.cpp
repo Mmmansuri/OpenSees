@@ -21,20 +21,18 @@
 
 // $Revision: 1.0 $
 // $Date: 2016-1-27  $
-                                                                        
+
 // Written: Minjie Zhu
 //
 // Description: This class defines the Particle class
 //
 
 #include "Particle.h"
-#include "ParticleGroup.h"
 
-void
-Particle::print()
-{
-    opserr<<"Particle coord      = "<<coord;
-    opserr<<"         pressure   = "<<pressure<<"\n";
-    opserr<<"         vel        = "<<velocity<<"\n";
+Particle::Particle()
+        : coord(), coordn(), velocity(), accel(), pressure(0), pdot(0), gtag(0),
+          updated(false), dt(0.0), fixed(false) {
 }
 
+Particle::~Particle() {
+}

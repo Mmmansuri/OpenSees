@@ -44,6 +44,9 @@
       <UniqueIdentifier>{e9c5a06b-73bb-47fc-b259-a5e177fc20fe}</UniqueIdentifier>
       <Extensions>.cpp; .h</Extensions>
     </Filter>
+    <Filter Include="pardiso">
+      <UniqueIdentifier>{723fd79e-0d4a-4e38-8be8-aebeea3e8a24}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\SRC\system_of_eqn\linearSOE\DomainSolver.cpp">
@@ -163,9 +166,6 @@
     <ClCompile Include="..\..\..\SRC\system_of_eqn\linearSOE\umfGEN\UmfpackGenLinSolver.cpp">
       <Filter>umfGEN</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\SRC\system_of_eqn\linearSOE\sparseGEN\CuSPSolver.cpp">
-      <Filter>sparseGEN</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\..\SRC\system_of_eqn\linearSOE\sparseGEN\PFEMCompressibleLinSOE.cpp">
       <Filter>sparseGEN</Filter>
     </ClCompile>
@@ -221,6 +221,15 @@
       <Filter>diagonal</Filter>
     </ClCompile>
     <ClCompile Include="..\..\..\SRC\system_of_eqn\linearSOE\sparseGEN\PFEMSolver_Umfpack.cpp">
+      <Filter>sparseGEN</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\SRC\system_of_eqn\linearSOE\sparseGEN\PFEMSolver_Laplace.cpp">
+      <Filter>sparseGEN</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\SRC\system_of_eqn\linearSOE\sparseGEN\PFEMSolver_LumpM.cpp">
+      <Filter>sparseGEN</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\SRC\system_of_eqn\linearSOE\sparseGEN\PFEMSolver_Mumps.cpp">
       <Filter>sparseGEN</Filter>
     </ClCompile>
   </ItemGroup>
@@ -330,9 +339,6 @@
     <ClInclude Include="..\..\..\SRC\system_of_eqn\linearSOE\umfGEN\UmfpackGenLinSolver.h">
       <Filter>umfGEN</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\..\SRC\system_of_eqn\linearSOE\sparseGEN\CuSPSolver.h">
-      <Filter>sparseGEN</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\..\SRC\system_of_eqn\linearSOE\sparseGEN\PFEMCompressibleLinSOE.h">
       <Filter>sparseGEN</Filter>
     </ClInclude>
@@ -388,6 +394,15 @@
       <Filter>diagonal</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\SRC\system_of_eqn\linearSOE\sparseGEN\PFEMSolver_Umfpack.h">
+      <Filter>sparseGEN</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\SRC\system_of_eqn\linearSOE\sparseGEN\PFEMSolver_Laplace.h">
+      <Filter>sparseGEN</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\SRC\system_of_eqn\linearSOE\sparseGEN\PFEMSolver_LumpM.h">
+      <Filter>sparseGEN</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\SRC\system_of_eqn\linearSOE\sparseGEN\PFEMSolver_Mumps.h">
       <Filter>sparseGEN</Filter>
     </ClInclude>
   </ItemGroup>

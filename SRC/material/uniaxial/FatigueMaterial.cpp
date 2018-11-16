@@ -180,6 +180,10 @@ FatigueMaterial::FatigueMaterial(int tag, UniaxialMaterial &material,
       " -- failed to get copy of material\n" ;
     exit(-1);
   }
+
+  //added by SAJalali
+  energy = 0;
+  CStress = 0;
 }
 
 FatigueMaterial::FatigueMaterial()
@@ -218,6 +222,9 @@ FatigueMaterial::FatigueMaterial()
   SR3 = 0;
   NC3 = 0;
 
+  //added by SAJalali
+  energy = 0;
+  CStress = 0;
 }
 
 FatigueMaterial::~FatigueMaterial()
@@ -479,7 +486,7 @@ FatigueMaterial::commitState(void)
     // Flag failure if we have reached that point
     if (DI >= Dmax )  {
       // Most likely will not fail at this point, more 
-      // likely at the psuedo peak. But this step is
+      // likely at the pseudo peak. But this step is
       // is important for accumulating damage
       Cfailed = true;
       opserr << "FatigueMaterial: material tag " << this->getTag() << " failed at peak\n";
@@ -640,7 +647,15 @@ FatigueMaterial::commitState(void)
     }
     
   }
-  
+
+  //added by SAJalali
+  if (!Cfailed)
+  {
+	  double TStress = getStress();
+	  energy += 0.5*(trialStrain - PS)*(TStress + CStress);
+	  CStress = TStress;
+  }
+
   PS = cSlope;            // Previous Slope
   EP = trialStrain;   // Keep track of previous strain
   
@@ -844,23 +859,36 @@ FatigueMaterial::recvSelf(int cTag, Channel &theChannel,
 }
 
 //Printing of current damage.  NOTE:  The damage that is returned
-//  is damage at the psuedo peak, DL, ( if not at a peak when the 
+//  is damage at the pseudo peak, DL, ( if not at a peak when the 
 //  print function  is called). The generic print will print both 
 //  the damage recorded at the last peak, along with current damage
 
 void 
 FatigueMaterial::Print(OPS_Stream &s, int flag)
 {
-  if (flag == 100) {
-    s << DL << endln;
-  } else {
-    s << "FatigueMaterial tag: " << this->getTag() << endln;
-    s << "\tMaterial: " << theMaterial->getTag() << endln;
-    s << "\tDI: " << DI << " Dmax: " << Dmax << endln;
-    s << "\tE0: " << E0 <<  " m: " << m  << endln;
-    s << "\tDL: " << DL << endln;
-
-  }
+	if (flag == 100) {
+		s << DL << endln;
+	}
+	
+	if (flag == OPS_PRINT_PRINTMODEL_MATERIAL) {
+		s << "FatigueMaterial tag: " << this->getTag() << endln;
+		s << "\tMaterial: " << theMaterial->getTag() << endln;
+		s << "\tDI: " << DI << " Dmax: " << Dmax << endln;
+		s << "\tE0: " << E0 << " m: " << m << endln;
+		s << "\tDL: " << DL << endln;
+	}
+		
+	if (flag == OPS_PRINT_PRINTMODEL_JSON) {
+		s << "\t\t\t{";
+		s << "\"name\": \"" << this->getTag() << "\", ";
+		s << "\"type\": \"FatigueMaterial\", ";
+		s << "\"material\": \"" << theMaterial->getTag() << "\", ";
+		s << "\"tDI\": " << DI << ", ";
+		s << "\"Dmax\": " << Dmax << ", ";
+		s << "\"tE0\": " << E0 << ", ";
+		s << "\"m\": " << m << ", ";
+		s << "\"tDL\": " << DL << "}";
+	}
 }
 
 Response* 

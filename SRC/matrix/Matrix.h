@@ -53,6 +53,9 @@ class Matrix
     Matrix(int nrows, int ncols);
     Matrix(double *data, int nrows, int ncols);    
     Matrix(const Matrix &M);    
+#ifdef USE_CXX11
+    Matrix( Matrix &&M);    
+#endif
     ~Matrix();
 
     // utility methods
@@ -75,13 +78,32 @@ class Matrix
     int addMatrixTransposeProduct(double factThis, const Matrix &A, const Matrix &B, double factOther); // A'B
     int addMatrixTripleProduct(double factThis, const Matrix &A, const Matrix &B, double factOther); // A'BA
     int addMatrixTripleProduct(double factThis, const Matrix &A, const Matrix &B, const Matrix &C, double otherFact); //A'BC
-    
+#if _DLL
+	inline double* GetData() { return this->data; }
+	void Print() {
+		opserr << "[ ";
+		for (int i = 0; i < this->numRows; i++)
+		{
+			for (int j = 0; j < this->numCols - 1; j++)
+			{
+				opserr << this->operator()(i, j) << ", ";
+			}
+			opserr << this->operator()(i, this->numCols - 1) << " ";
+			opserr << ";" << endln;
+		}
+		opserr << "] " << endln;
+	}
+#endif
     // overloaded operators 
     inline double &operator()(int row, int col);
     inline double operator()(int row, int col) const;
     Matrix operator()(const ID &rows, const ID & cols) const;
     
     Matrix &operator=(const Matrix &M);
+
+#ifdef USE_CXX11
+    Matrix &operator=(Matrix &&M);
+#endif
     
     // matrix operations which will preserve the derived type and
     // which can be implemented efficiently without many constructor calls.

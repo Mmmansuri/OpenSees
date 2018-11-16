@@ -87,14 +87,19 @@ StressDensityModel2D::~StressDensityModel2D()
 NDMaterial *
 StressDensityModel2D::getCopy(void)
 {
-	StressDensityModel2D *theCopy = 0;
+	/*StressDensityModel2D *theCopy = 0;
 	if(theCopy){
 		*theCopy=*this;
 		return theCopy;
 	} else {
 		opserr<<"StressDensityModel2D::getCopy failed to get copy: " << endln;
 	  	return 0;
-	}
+	}*/
+    StressDensityModel2D *theCopy;
+    theCopy = new StressDensityModel2D();
+    *theCopy = *this;
+    return theCopy;
+
 }
 
 const char *
@@ -156,7 +161,7 @@ StressDensityModel2D::commitState(void)
 	strainCurrent=strainNext;
 
 	//Commit hardening parameters
-	for(int i=0;i<(Nsurface*7+3);i++) {
+	for(int i=0;i<(Nsurface*7+5);i++) {
         hard_para_real[i] = _hard_para_real[i]; 
     }
 	for(int i=0;i<2;i++) {
@@ -172,7 +177,7 @@ StressDensityModel2D::sendSelf(int commitTag, Channel &theChannel)
     int res = 0;
 
     // place data in a vector
-    static Vector vData(317);
+    static Vector vData(318);
 
 	vData(0)  = this->getTag();
 	vData(1)  = theStage;
@@ -215,7 +220,7 @@ StressDensityModel2D::sendSelf(int commitTag, Channel &theChannel)
     vData(61) = currentTangent(1,0); vData(64) = currentTangent(1,1); vData(67) = currentTangent(1,2);
     vData(62) = currentTangent(2,0); vData(65) = currentTangent(2,1); vData(68) = currentTangent(2,2);
 
-    for (int i=0;i<Nsurface*7+3;i++) {
+    for (int i=0;i<Nsurface*7+5;i++) {
         vData(69+i) = hard_para_real[i];
     }
 
@@ -234,7 +239,7 @@ StressDensityModel2D::recvSelf(int commitTag, Channel &theChannel,FEM_ObjectBrok
     int res = 0;
 
     // place data in a vector
-    static Vector vData(317);
+    static Vector vData(318);
 
 	res = theChannel.recvVector(this->getDbTag(), commitTag, vData);
 	if (res < 0) {
@@ -283,7 +288,7 @@ StressDensityModel2D::recvSelf(int commitTag, Channel &theChannel,FEM_ObjectBrok
     currentTangent(1,0) = vData(61); currentTangent(1,1) = vData(64); currentTangent(1,2) = vData(67);
     currentTangent(2,0) = vData(62); currentTangent(2,1) = vData(65); currentTangent(2,2) = vData(68);
 
-    for (int i=0;i<Nsurface*7+3;i++) {
+    for (int i=0;i<Nsurface*7+5;i++) {
         hard_para_real[i] = vData(69+i);
     }
 	
@@ -296,7 +301,7 @@ void
 StressDensityModel2D::initialise() 
 {
     // initialise hardening parameters to zeros
-    for (int i=0;i<7*Nsurface+3;i++) {
+    for (int i=0;i<7*Nsurface+5;i++) {
         hard_para_real[i]=0.0;
     }
 	for (int i=0;i<2;i++) {
@@ -326,7 +331,7 @@ StressDensityModel2D::initialise()
         _strain_current[i] = 0.0;
         _strain_next[i] = 0.0;
     }
-    for (int i=0;i<7*Nsurface+3;i++) {
+    for (int i=0;i<7*Nsurface+5;i++) {
         _hard_para_real[i]=0.0;
     }
 	for (int i=0;i<2;i++) {
@@ -374,7 +379,9 @@ StressDensityModel2D::GetCurrentStress(void){
 	for(int i=2;i<3;i++)_strain_current[i] =  strainCurrent(i)/2.;	//convert to true strain
 
 	for(int i=0;i<2;i++)_strain_next[i] = -strainNext(i);
-	for(int i=2;i<3;i++)_strain_next[i] =  strainNext(i)/2.;		// convert to true strain
+	for(int i=2;i<3;i++) {
+        _strain_next[i] =  strainNext(i)/2.;
+    }
 
 	for(int i=0;i<16;i++) {
         _model_parameter[i] = modelParameter[i];
@@ -396,7 +403,7 @@ StressDensityModel2D::GetCurrentStress(void){
         _hsl_pressure[i] = refPressure[i];
     }
 
-	for(int i=0;i<Nsurface*7+3;i++) {
+	for(int i=0;i<Nsurface*7+5;i++) {
         _hard_para_real[i] = hard_para_real[i];
     }
 

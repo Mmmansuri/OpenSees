@@ -1,9 +1,9 @@
 ////J.Z. 01/2010 Concrete02Thermal.cpp   **for Siliceous aggregates
 // this is the second edition of Concrete02Thermal,the interface of it is same with concrete02.
+// Modified for SIF modelling by Liming Jiang [http://openseesforfire.github.io] 
 
 
 #include <stdlib.h>
-#include <string.h>
 #include <Concrete02Thermal.h>
 #include <OPS_Globals.h>
 #include <float.h>
@@ -354,7 +354,7 @@ Concrete02Thermal::getElongTangent(double TempT, double& ET, double& Elong, doub
 	 // epsc0 = epsc0T*strainRatio;
 	 // epscu = epscuT*strainRatio;
 
-  // caculation of thermal elongation
+  // calculation of thermal elongation
 	  if (Temp <= 1) {
 		  ThermalElongation = (Temp - 0) * 9.213e-6;
 	  }
@@ -378,7 +378,7 @@ Concrete02Thermal::getElongTangent(double TempT, double& ET, double& Elong, doub
  // } 
 
 ///PK COOLING PART FOR DESCENDING BRANCH OF A FIRE//// 
-  // If temperature is less that previous commited temp then we have cooling taking place
+  // If temperature is less that previous committed temp then we have cooling taking place
   if (Temp < TempP) {
    
 //opserr << "cooling " << Temp << " " << TempP << endln;

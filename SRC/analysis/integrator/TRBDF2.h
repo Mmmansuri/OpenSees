@@ -32,7 +32,7 @@
 // TRBDF2 is an algorithmic class for performing a transient analysis
 // using the TRBDF2 integration scheme.
 // ref: K.J.Bathe, "Conserving Energy and Momentum in Nonlinear Dynamics: A Simple
-//      Implicit Time Integration Scheme", Computers ans Structures 85(2007),437-445
+//      Implicit Time Integration Scheme", Computers and Structures 85(2007),437-445
 //
 // note: the implementation does not do sub-step, it just alternates between trapezoidal
 // and euler methods, if user specifies dt/2 step size result will be as per paper.
@@ -60,6 +60,8 @@ public:
     int newStep(double deltaT);    
     int revertToLastStep(void);        
     int update(const Vector &deltaU);
+
+    const Vector &getVel(void);
     
     int sendSelf(int commitTag, Channel &theChannel);
     int recvSelf(int commitTag, Channel &theChannel, FEM_ObjectBroker &theBroker);

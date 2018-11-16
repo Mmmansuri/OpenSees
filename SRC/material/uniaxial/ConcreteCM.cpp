@@ -21,8 +21,8 @@
 // crack closure effects. 
 //
 // References:
-// 1) Chang, G.A. and Mander, J.B. (1994), ìSeismic Energy Based Fatigue Damage 
-// Analysis of Bridge Columns: Part I ñ Evaluation of Seismic Capacityî, NCEER 
+// 1) Chang, G.A. and Mander, J.B. (1994), ‚ÄúSeismic Energy Based Fatigue Damage 
+// Analysis of Bridge Columns: Part I ‚Äì Evaluation of Seismic Capacity‚Äù, NCEER 
 // Technical Report No. NCEER-94-0006, State University of New York, Buffalo.
 // 2) Kutay Orakcal (2004), "Nonlinear Modeling and Analysis of Slender Reinforced 
 // Concrete Walls", PhD Dissertation, Department of Civil and Environmental Engineering, 
@@ -57,12 +57,12 @@
 // Read input parameters and build the material
 void *OPS_ConcreteCM(void)
 {
-  
+
   // Pointer to a uniaxial material that will be returned                       
   UniaxialMaterial *theMaterial = 0;
   
   int numArgs = OPS_GetNumRemainingInputArgs();
-  
+
   // Parse the script for material parameters
   if (numArgs != 10 && numArgs !=  11 && numArgs != 12) {
     opserr << "Incorrect # args Want: uniaxialMaterial ConcreteCM tag? fpcc? epcc? Ec? rc? xcrn? ft? et? rt? xcrp? <-GapClose gap?>" << endln;
@@ -105,7 +105,7 @@ void *OPS_ConcreteCM(void)
     theMaterial = new ConcreteCM(iData[0], dData[0], dData[1], dData[2], dData[3], dData[4], dData[5], dData[6], dData[7], dData[8], mon);
     
   } else {
-    
+
     int gap;
     numData = 1;
     
@@ -113,15 +113,15 @@ void *OPS_ConcreteCM(void)
     // OPS_GetStringCopy(&str);
     if (strcmp(str, "-GapClose") == 0) {
       if (OPS_GetIntInput(&numData, &gap) != 0) {
-	opserr << "Invalid $gap parameter for uniaxialMaterial ConcreteCM with tag  " << iData[0] << endln;
-	return 0;
+		opserr << "Invalid $gap parameter for uniaxialMaterial ConcreteCM with tag  " << iData[0] << endln;
+		return 0;
       }
     } else {
       opserr << "Invalid input parameter for uniaxialMaterial ConcreteCM with tag  " << iData[0] << ", want: -GapClose"<< endln;
       return 0;
     }
     
-    delete [] str;
+    // delete [] str;
     
     if (gap != 0 && gap != 1) {
       opserr << "Invalid $gap parameter for uniaxialMaterial ConcreteCM with tag  " << iData[0] << endln;
@@ -177,7 +177,7 @@ Crule(0.0), Cstrain(0.0), Cstress(0.0), Ctangent(0.0)
 
 }
 
-// Constructor for optional gradual gap closure: mon=0 (default), Gap=0 or 1 (optinal user-generated input, see Eplpf member function)
+// Constructor for optional gradual gap closure: mon=0 (default), Gap=0 or 1 (optional user-generated input, see Eplpf member function)
 ConcreteCM::ConcreteCM
 (int tag, double FPCC, double EPCC, double EC, double RC, double XCRN, double FT, double ET, double RT, double XCRP, int GAP, int DUMMY)
 :UniaxialMaterial(tag, MAT_TAG_ConcreteCM),
@@ -1344,7 +1344,7 @@ int ConcreteCM::setTrialStrain (double strain, double strainRate)
 
 				}	// if (Crule==1.0)	// or 5.0 or 7.0
 
-				else if (Crule==77.0)	{			// Continue on transiton 77 [Rules 77,1,5]
+				else if (Crule==77.0)	{			// Continue on transition 77 [Rules 77,1,5]
 
 					if (Tstrain>esrestn)	{		// Rule 77
 
@@ -1367,7 +1367,7 @@ int ConcreteCM::setTrialStrain (double strain, double strainRate)
 
 				}	// if (Crule==77.0)
 
-				else if (Crule==13.0)	{			// Continue on transiton 13 [Rules 13,7,1,5]
+				else if (Crule==13.0)	{			// Continue on transition 13 [Rules 13,7,1,5]
 
 					if (Tstrain>=Teunn)	{	// Rule 13
 

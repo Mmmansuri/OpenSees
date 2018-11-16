@@ -3,7 +3,7 @@
 include ../../../Makefile.def
 
 OBJS       = TclModelBuilder.o myCommands.o TclUniaxialMaterialTester.o \
-	Block2D.o Block3D.o TclSectionTester.o
+	Block2D.o Block3D.o TclSectionTester.o TclPlaneStressMaterialTester.o
 
 # Compilation control
 
@@ -132,36 +132,27 @@ TCL_COMMAND_LIBS = $(FE)/domain/pattern/TclPatternCommand.o \
 	$(FE)/element/fourNodeQuad/TclFourNodeQuadCommand.o \
 	$(FE)/element/brick/TclTwenty_Node_BrickCommand.o \
 	$(FE)/element/brick/TclBrickCommand.o \
-	$(FE)/element/adapter/TclActuatorCommand.o \
-	$(FE)/element/adapter/TclActuatorCorotCommand.o \
-	$(FE)/element/adapter/TclAdapterCommand.o \
-	$(FE)/element/generic/TclGenericClientCommand.o \
-	$(FE)/element/generic/TclGenericCopyCommand.o \
-	$(FE)/element/elastomericBearing/TclElastomericBearingBoucWenCommand.o \
 	$(FE)/element/feap/TclFeapElementCommand.o \
 	$(FE)/material/nD/feap/TclFeapMaterialCommand.o \
 	$(FE)/element/beamWithHinges/TclBeamWithHingesBuilder.o \
 	$(FE)/element/frictionBearing/frictionModel/TclModelBuilderFrictionModelCommand.o \
 	$(FE)/element/PFEMElement/TclModelBuilder_addPFEMElement.o \
-	$(FE)/element/PFEMElement/TclPFEMCommands.o \
-	$(FE)/material/uniaxial/backbone/TclModelBuilderBackboneCommand.o \
 	$(FE)/material/uniaxial/TclModelBuilderUniaxialMaterialCommand.o \
+	$(FE)/material/uniaxial/backbone/TclModelBuilderBackboneCommand.o \
+	$(FE)/material/uniaxial/stiffness/TclModelBuilderStiffnessDegradationCommand.o \
+	$(FE)/material/uniaxial/strength/TclModelBuilderStrengthDegradationCommand.o \
+	$(FE)/material/uniaxial/unloading/TclModelBuilderUnloadingRuleCommand.o \
 	$(FE)/material/nD/TclModelBuilderNDMaterialCommand.o \
 	$(FE)/material/section/yieldSurface/TclModelBuilderYS_SectionCommand.o \
 	$(FE)/material/section/TclModelBuilderSectionCommand.o \
 	$(FE)/modelbuilder/tcl/TclUniaxialMaterialTester.o \
+	$(FE)/modelbuilder/tcl/TclPlaneStressMaterialTester.o \
 	$(FE)/modelbuilder/tcl/TclSectionTester.o \
 	$(FE)/modelbuilder/tcl/TclModelBuilder.o \
 	$(FE)/domain/component/TclUpdateMaterialCommand.o \
 	$(FE)/domain/component/TclParameterCommands.o \
 	$(FE)/domain/region/TclRegionCommands.o \
-	$(FE)/element/twoNodeLink/TclTwoNodeLinkCommand.o \
-	$(FE)/element/frictionBearing/TclRJWatsonEQSCommand.o \
 	$(FE)/material/uniaxial/snap/TclSnapMaterialCommand.o \
-	$(FE)/element/frictionBearing/TclFlatSliderCommand.o \
-	$(FE)/element/elastomericBearing/TclElastomericBearingPlasticityCommand.o \
-	$(FE)/element/elastomericBearing/TclElastomericBearingUFRPCommand.o \
-	$(FE)/element/frictionBearing/TclSingleFPCommand.o \
 	$(FE)/material/uniaxial/fedeas/TclFedeasMaterialCommand.o \
 	$(FE)/material/uniaxial/drain/TclDrainMaterialCommand.o \
 	$(FE)/api/elementAPI_TCL.o

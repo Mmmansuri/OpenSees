@@ -19,14 +19,14 @@
 ** ****************************************************************** */
 
 // $Revision: 1.2 $
-// $Date: 2008-04-14 21:27:16 $
+// $Date: 2020-03-09 22:27:16 $
 // $Source: /usr/local/cvs/OpenSees/SRC/material/uniaxial/SelfCenteringMaterial.h,v $
 
 #ifndef SelfCenteringMaterial_h
 #define SelfCenteringMaterial_h
 
-// Written: JAE
-// Created: Oct 2007
+// Written: Mansuri
+// Created: 2019
 //
 // Description: This file contains the class definition for 
 // Self-Centering Material.  SelfCenteringMaterial provides 
@@ -40,7 +40,7 @@
 class SelfCenteringMaterial : public UniaxialMaterial
 {
   public:
-    SelfCenteringMaterial(int tag, double k1, double k2,
+    SelfCenteringMaterial(int tag, double k1, double k2, double k3, double SecondFuse, double epsA, double epsB, double ForcB, double a3, double a4, double a5, double a6, double a7, double a8,
 		      double ActF, double beta, double SlipDef, 
 			  double BearDef, double rBear);
     SelfCenteringMaterial();
@@ -72,6 +72,17 @@ class SelfCenteringMaterial : public UniaxialMaterial
     // Material parameters (from input)
     double k1;		// Precompression Stiffness
     double k2;		// Prestress Stiffness
+	double k3;		// Lower Edge Stiffness
+	double SecondFuse;		// 0 No Second Fuse    1 YES
+	double epsA;		// Deformation of Last point in Fuse 1
+	double epsB;		// Deformation of Last point in Fuse 2
+	double ForcB;		// Force of Last point in Fuse 2
+	double a3;		// x to y ratio
+	double a4;		// m to n ratio
+	double a5;		// Reserved Parameter
+	double a6;		// Reserved Parameter
+	double a7;		// Reserved Parameter
+	double a8;		// Reserved Parameter
     double ActF;	// Activation Stress/Force
     double beta;	// Flag-Shape Parameter
     double rBear;	// Bearing Stiffness Factor
@@ -82,6 +93,56 @@ class SelfCenteringMaterial : public UniaxialMaterial
     double SlipF;	// External Fuse Slip Stress/Force
     double ActDef;	// Actvation Strain/Deformation
     double BearF;	// Bearing Stress/Force
+	
+	
+	double epsMaxnP;	// 
+	double epsMaxnN;	// 
+	double SecondFuseAP;	// 
+	double SecondFuseAN;	//
+	
+	double x1p;	// 
+	double y1p;	// 
+	double m1p;	// 
+	double x2p;	// 
+	double y2p;	// 
+	double m2p;	//
+	double x3p;	// 
+	double y3p;	// 
+	double m3p;	//
+	double x4p;	// 
+	double y4p;	// 
+	double kupp;	//
+	
+	double x1n;	// 
+	double y1n;	// 
+	double m1n;	// 
+	double x2n;	// 
+	double y2n;	// 
+	double m2n;	//
+	double x3n;	// 
+	double y3n;	// 
+	double m3n;	//
+	double x4n;	// 
+	double y4n;	// 
+	double kupn;	//
+	
+	double xp;	// 
+	double yp;	//
+    double xn;	// 
+	double yn;	//
+
+	double x1tp;	// 
+	double y1tp;	//
+	double x3tp;	// 
+	double y3tp;	//
+	double xtp;	//
+	
+	double x1tn;	// 
+	double y1tn;	//
+	double x3tn;	// 
+	double y3tn;	//
+	double xtn;	//
+	
     
     double diffStrain;		// Difference of strain from last step
     double noSlipStrain;	// Tstrain minus the current Slip Strain

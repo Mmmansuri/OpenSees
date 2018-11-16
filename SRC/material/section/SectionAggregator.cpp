@@ -42,7 +42,7 @@
 #include <SectionAggregator.h>
 #include <MaterialResponse.h>
 #include <ID.h>
-
+#include <FiberSection2d.h>			//by SAJalali
 #include <string.h>
 
 #include <classTags.h>
@@ -137,6 +137,62 @@ void* OPS_SectionAggregator()
     }
 	
     return 0;
+}
+
+void* OPS_UniaxialSection()
+{
+  int numdata = OPS_GetNumRemainingInputArgs();
+  if (numdata < 3) {
+    opserr << "WARNING insufficient arguments\n";
+    opserr << "Want: section Uniaxial tag? 1DTag? code?" << endln;
+    return 0;
+  }
+  
+  int data[2];
+  numdata = 2;
+  if (OPS_GetIntInput(&numdata, data) < 0) {
+    opserr << "WARNING invalid integer" << endln;
+    return 0;
+  }
+  
+  int code;
+  const char* type = OPS_GetString();
+  if (strcmp(type,"Mz") == 0)
+    code = SECTION_RESPONSE_MZ;
+  else if (strcmp(type,"P") == 0)
+    code = SECTION_RESPONSE_P;
+  else if (strcmp(type,"Vy") == 0)
+    code = SECTION_RESPONSE_VY;
+  else if (strcmp(type,"My") == 0)
+    code = SECTION_RESPONSE_MY;
+  else if (strcmp(type,"Vz") == 0)
+    code = SECTION_RESPONSE_VZ;
+  else if (strcmp(type,"T") == 0)
+    code = SECTION_RESPONSE_T;
+  else {
+    opserr << "WARNING invalid code" << endln;
+    opserr << "Uniaxial section: " << data[0] << endln;
+    return 0;
+  }
+  
+  // Retrieve the uniaxial material from the model builder
+  UniaxialMaterial *theMat = OPS_getUniaxialMaterial(data[1]);
+  
+  if (theMat == 0) {
+    opserr << "WARNING uniaxial material does not exist\n";
+    opserr << "uniaxial material: " << data[0];
+    opserr << "\nUniaxial section: " << data[1] << endln;
+    return 0;
+  }
+  
+  // Parsing was successful, allocate the section
+  //theSection = new GenericSection1d (tag, *theMat, code);
+  
+  UniaxialMaterial *theMats[1];
+  theMats[0] = theMat;
+  ID codeID(1);
+  codeID(0) = code;
+  return new SectionAggregator(data[0], 1, theMats, codeID);
 }
 
 #define maxOrder 10
@@ -325,12 +381,10 @@ SectionAggregator::SectionAggregator():
 // destructor:
 SectionAggregator::~SectionAggregator()
 {
-   int i;
-
    if (theSection)
        delete theSection;
 
-   for (i = 0; i < numMats; i++)
+   for (int i = 0; i < numMats; i++)
        if (theAdditions[i])
 	   delete theAdditions[i];
 
@@ -902,7 +956,14 @@ SectionAggregator::setResponse(const char **argv, int argc, OPS_Stream &output)
     
     return this->SectionForceDeformation::setResponse(argv, argc, output);
   } 
-  
+  // by SAJalali
+  int num = numMats;
+  if (theSection != 0)
+	  num++;
+  if ((strcmp(argv[0], "energy") == 0) || (strcmp(argv[0], "Energy") == 0)) {
+	  return theResponse = new MaterialResponse(this, 8, Vector(num));
+  }
+
 
   if (theSection != 0)
     return theSection->setResponse(argv, argc, output);
@@ -912,22 +973,89 @@ SectionAggregator::setResponse(const char **argv, int argc, OPS_Stream &output)
   return 0;
 }
 
+//by SAJalali
+int
+SectionAggregator::getResponse(int responseID, Information &sectInfo)
+{
+	FiberSection2d* sec = 0;
+	int num = numMats;
+	if (theSection != 0)
+		num++;
+	Vector res(num);
+	if (responseID == 8) {
+		for (int i = 0; i < numMats; i++)
+			res(i) = theAdditions[i]->getEnergy();
+		sec = (FiberSection2d*)theSection;
+		if (sec != 0)
+			res(numMats) = sec->getEnergy();
+		sectInfo.setVector(res);
+		//opserr << "energyVect=" << res << "\n";
+	}
+	else
+		return SectionForceDeformation::getResponse(responseID, sectInfo);
+
+	return 0;
+}
+
+
 void
 SectionAggregator::Print(OPS_Stream &s, int flag)
 {
-  if (flag == 2) {
-      theSection->Print(s, flag);
-  } else {
-    s << "\nSection Aggregator, tag: " << this->getTag() << endln;
-    if (theSection) {
-      s << "\tSection, tag: " << theSection->getTag() << endln;
-      theSection->Print(s, flag);
+    if (flag == OPS_PRINT_PRINTMODEL_SECTION) {
+        s << "\nSection Aggregator, tag: " << this->getTag() << endln;
+        if (theSection) {
+            s << "\tSection, tag: " << theSection->getTag() << endln;
+            theSection->Print(s, flag);
+        }
+        s << "\tUniaxial Additions" << endln;
+        for (int i = 0; i < numMats; i++)
+            s << "\t\tUniaxial Material, tag: " << theAdditions[i]->getTag() << endln;
+        s << "\tUniaxial codes " << *matCodes << endln;
     }
-    s << "\tUniaxial Additions" << endln;
-    for (int i = 0; i < numMats; i++)
-      s << "\t\tUniaxial Material, tag: " << theAdditions[i]->getTag() << endln;
-    s << "\tUniaxial codes " << *matCodes << endln;
-  }
+    
+    if (flag == OPS_PRINT_PRINTMODEL_MATERIAL) {
+        theSection->Print(s, flag);
+    }
+    
+    if (flag == OPS_PRINT_PRINTMODEL_JSON) {
+        s << "\t\t\t{";
+        s << "\"name\": \"" << this->getTag() << "\", ";
+        s << "\"type\": \"SectionAggregator\", ";
+        if (theSection) {
+            s << "\"section\": \"" << theSection->getTag() << "\", ";
+        }
+        s << "\"materials\": [";
+        for (int i = 0; i < numMats - 1; i++)
+            s << "\"" << theAdditions[i]->getTag() << "\", ";
+        s << "\"" << theAdditions[numMats - 1]->getTag() << "\"], ";
+        s << "\"dof\": [";
+        for (int i = 0; i < numMats - 1; i++) {
+            if ((*matCodes)(i) == 2)
+                s << "\"P\", ";
+            else if ((*matCodes)(i) == 3)
+                s << "\"Vy\", ";
+            else if ((*matCodes)(i) == 5)
+                s << "\"Vz\", ";
+            else if ((*matCodes)(i) == 6)
+                s << "\"T\", ";
+            else if ((*matCodes)(i) == 4)
+                s << "\"My\", ";
+            else if ((*matCodes)(i) == 1)
+                s << "\"Mz\", ";
+        }
+        if ((*matCodes)(numMats - 1) == 2)
+            s << "\"P\"]}";
+        else if ((*matCodes)(numMats - 1) == 3)
+            s << "\"Vy\"]}";
+        else if ((*matCodes)(numMats - 1) == 5)
+            s << "\"Vz\"]}";
+        else if ((*matCodes)(numMats - 1) == 6)
+            s << "\"T\"]}";
+        else if ((*matCodes)(numMats - 1) == 4)
+            s << "\"My\"]}";
+        else if ((*matCodes)(numMats - 1) == 1)
+            s << "\"Mz\"]}";
+    }
 }
 
 

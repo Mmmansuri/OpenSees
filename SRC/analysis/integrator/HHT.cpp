@@ -217,7 +217,14 @@ int HHT::formEleTangent(FE_Element *theEle)
         theEle->addKiToTang(alpha*c1);
         theEle->addCtoTang(alpha*c2);
         theEle->addMtoTang(c3);
-    }
+    } else if (statusFlag == HALL_TANGENT)  {
+        theEle->addKtToTang(alpha*c1*cFactor);
+        theEle->addKiToTang(alpha*c1*iFactor);
+        theEle->addCtoTang(alpha*c2);
+        theEle->addMtoTang(c3);
+    } else {
+      opserr << "HHT::formEleTangent - unknown FLAG\n";
+    }    
     
     return 0;
 }
@@ -417,6 +424,11 @@ int HHT::commit(void)
     return theModel->commitDomain();
 }
 
+const Vector &
+HHT::getVel()
+{
+  return *Udot;
+}
 
 int HHT::sendSelf(int cTag, Channel &theChannel)
 {

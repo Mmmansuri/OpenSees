@@ -29,7 +29,7 @@
 ** CONSEQUENTIAL DAMAGES, INCLUDING LOST PROFITS, ARISING OUT OF THE USE OF THIS SOFTWARE AND ITS 
 ** DOCUMENTATION, EVEN IF REGENTS HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. REGENTS GRANTS 
 ** NO EXPRESS OR IMPLIED LICENSE IN ANY PATENT RIGHTS OF REGENTS BUT HAS IMPLEMENTED AN INDIVIDUAL 
-** CONTRIBUTOR LICENSE AGREEMENT FOR THE OPENSEES PROJECT AT THE UNIVERISTY OF CALIFORNIA, BERKELEY 
+** CONTRIBUTOR LICENSE AGREEMENT FOR THE OPENSEES PROJECT AT THE UNIVERSITY OF CALIFORNIA, BERKELEY 
 ** TO BENEFIT THE END USER.
 **
 ** REGENTS SPECIFICALLY DISCLAIMS ANY WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES 
@@ -55,10 +55,42 @@
 #include "QzSimple1.h"
 #include <Vector.h>
 #include <Channel.h>
+#include <elementAPI.h>
 
 // Controls on internal iterations between spring components
 const int QZmaxIterations = 20;
 const double QZtolerance = 1.0e-12;
+
+void* OPS_QzSimple1()
+{
+    int numdata = OPS_GetNumRemainingInputArgs();
+    if (numdata < 4) {
+	opserr << "WARNING insufficient arguments\n";
+	opserr << "Want: uniaxialMaterial QzSimple1 tag? qzType? qult? z50? suction? c?\n";
+	return 0;
+    }
+    
+    int idata[2];
+    numdata = 2;
+    if (OPS_GetIntInput(&numdata, idata) < 0) {
+	opserr << "WARNING invalid int inputs\n";
+	return 0;
+    }
+    
+    double ddata[4] = {0,0,0,0};
+    numdata = OPS_GetNumRemainingInputArgs();
+    if (numdata > 4) numdata = 4;
+    if (OPS_GetDoubleInput(&numdata, ddata) < 0) {
+	opserr << "WARNING invalid double inputs\n";
+	return 0;
+    }
+    
+    UniaxialMaterial *theMaterial = 0;
+    theMaterial = new QzSimple1(idata[0], idata[1], ddata[0], ddata[1],
+				ddata[2], ddata[3]);
+    
+    return theMaterial;
+}
 
 /////////////////////////////////////////////////////////////////////
 //	Constructor with data
@@ -297,7 +329,7 @@ void QzSimple1::getNearField(double zlast, double dz, double dz_old)
 	//
 	TNF_z = zlast + dz;
 
-	// Postive loading
+	// Positive loading
 	//
 	if(NFdz >= 0.0){
 		// Check if elastic using z < zinr

@@ -3,6 +3,13 @@ include ../../../Makefile.def
 OBJS       = UniaxialMaterial.o \
 	ElasticMaterial.o \
 	Elastic2Material.o \
+	ElasticPowerFunc.o \
+	UVCuniaxial.o \
+	Bilin.o \
+	Bilin02.o \
+	IMKBilin.o \
+	IMKPeakOriented.o \
+	IMKPinching.o \
 	Steel2.o \
 	OriginCentered.o \
 	ConcretewBeta.o \
@@ -26,6 +33,7 @@ OBJS       = UniaxialMaterial.o \
 	BilinearOilDamper.o \
 	Cast.o \
         HardeningMaterial.o \
+        HardeningMaterial2.o \
 	Concrete01.o \
 	Concrete02Thermal.o \
 	Steel02Thermal.o \
@@ -44,12 +52,14 @@ OBJS       = UniaxialMaterial.o \
 	InitStressMaterial.o \
 	SimpleFractureMaterial.o \
 	MinMaxMaterial.o \
+	TensionOnlyMaterial.o \
         PathIndependentMaterial.o \
 	CableMaterial.o \
 	ENTMaterial.o \
 	FedeasMaterial.o \
 	DrainMaterial.o \
-	BoucWenMaterial.o \
+	BoucWenOriginal.o \
+    BoucWenMaterial.o \
 	SecantConcrete.o \
 	HardeningMaterial2.o \
 	Pinching4Material.o \
@@ -58,7 +68,10 @@ OBJS       = UniaxialMaterial.o \
 	SteelMP.o \
 	SmoothPSConcrete.o \
 	Steel02.o \
+	Steel02Fatigue.o \
+	GNGMaterial.o \
 	Concrete02.o \
+	Concrete02IS.o \
 	Steel03.o \
 	MultiLinear.o \
 	HookGap.o \
@@ -104,6 +117,18 @@ OBJS       = UniaxialMaterial.o \
 	CFSSSWP.o \
 	CFSWSWP.o \
 	Steel4.o \
+	ConcreteECThermal.o \
+	ElasticMaterialThermal.o \
+	StainlessECThermal.o \
+	SteelECThermal.o \
+	DamperMaterial.o \
+	MaterialState.o \
+	OOHystereticMaterial.o \
+	SPSW02.o \
+	TDConcrete.o \
+	TDConcreteEXP.o \
+	TDConcreteMC10.o \
+	TDConcreteMC10NL.o \
         TclModelBuilderUniaxialMaterialCommand.o
 
 all:         $(OBJS)
@@ -112,6 +137,9 @@ all:         $(OBJS)
 	@$(CD) $(FE)/material/uniaxial/snap; $(MAKE);
 	@$(CD) $(FE)/material/uniaxial/PY; $(MAKE);
 	@$(CD) $(FE)/material/uniaxial/backbone; $(MAKE);
+	@$(CD) $(FE)/material/uniaxial/stiffness; $(MAKE);
+	@$(CD) $(FE)/material/uniaxial/strength; $(MAKE);
+	@$(CD) $(FE)/material/uniaxial/unloading; $(MAKE);
 	@$(CD) $(FE)/material/uniaxial/limitState; $(MAKE);
 
 # Miscellaneous
@@ -128,6 +156,9 @@ spotless: clean
 	@$(CD) $(FE)/material/uniaxial/snap; $(MAKE) wipe;
 	@$(CD) $(FE)/material/uniaxial/PY; $(MAKE) wipe;
 	@$(CD) $(FE)/material/uniaxial/backbone; $(MAKE) wipe;
+	@$(CD) $(FE)/material/uniaxial/stiffness; $(MAKE) wipe;
+	@$(CD) $(FE)/material/uniaxial/strength; $(MAKE) wipe;
+	@$(CD) $(FE)/material/uniaxial/unloading; $(MAKE) wipe;
 	@$(CD) $(FE)/material/uniaxial/limitState; $(MAKE) wipe;
 
 wipe: spotless

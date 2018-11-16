@@ -1,5 +1,5 @@
 /* ****************************************************************** **
-**    OpenSees - Open System for Earthquake Engineering Simulation    **
+**    Openers - Open System for Earthquake Engineering Simulation    **
 **          Pacific Earthquake Engineering Research Center            **
 **                                                                    **
 **                                                                    **
@@ -18,9 +18,9 @@
 **                                                                    **
 ** ****************************************************************** */
                                                                         
-// $Revision$
-// $Date$
-// $URL$
+// $Revision: 6715 $
+// $Date: 2018-05-03 06:39:06 -0700 (Thu, 03 May 2018) $
+// $URL: svn://peera.berkeley.edu/usr/local/svn/OpenSees/trunk/SRC/element/elasticBeamColumn/ElasticBeam2d.cpp $
                                                                         
                                                                         
 // File: ~/model/ElasticBeam2d.C
@@ -40,6 +40,7 @@
 #include <FEM_ObjectBroker.h>
 
 #include <CrdTransf.h>
+#include <SectionForceDeformation.h>
 #include <Information.h>
 #include <Parameter.h>
 #include <ElementResponse.h>
@@ -55,10 +56,10 @@ Matrix ElasticBeam2d::K(6,6);
 Vector ElasticBeam2d::P(6);
 Matrix ElasticBeam2d::kb(3,3);
 
-void* OPS_ElasticBeam2d(void)
+void* OPS_ElasticBeam2d(const ID &info)
 {
-    if(OPS_GetNumRemainingInputArgs() < 7) {
-	opserr<<"insufficient arguments:eleTag,iNode,jNode,A,E,Iz,transfTag\n";
+    if(OPS_GetNumRemainingInputArgs() < 5) {
+	opserr<<"insufficient arguments:eleTag,iNode,jNode,<A,E,Iz>or<sectionTag>,transfTag\n";
 	return 0;
     }
 
@@ -77,12 +78,25 @@ void* OPS_ElasticBeam2d(void)
 	return 0;
     }
 
+    bool section = false;
+    int sectionTag;
     double data[3];
-    if(OPS_GetDoubleInput(&numData,&data[0]) < 0) {
+    if (OPS_GetNumRemainingInputArgs() > 3) {
+      // Read A, E, Iz
+      numData = 3;
+      if(OPS_GetDoubleInput(&numData,&data[0]) < 0) {
 	opserr<<"WARNING failed to read doubles\n";
 	return 0;
+      }
+    } else {
+      // Read a section tag
+      numData = 1;
+      if(OPS_GetIntInput(&numData,&sectionTag) < 0) {
+	opserr<<"WARNING sectionTag is not integer\n";
+	return 0;
+      }
+      section = true;
     }
-
     numData = 1;
     int transfTag;
     if(OPS_GetIntInput(&numData,&transfTag) < 0) {
@@ -114,14 +128,24 @@ void* OPS_ElasticBeam2d(void)
     }
 
     // check transf
-    CrdTransf* theTransf = OPS_GetCrdTransf(transfTag);
+    CrdTransf* theTransf = OPS_getCrdTransf(transfTag);
     if(theTransf == 0) {
 	opserr<<"coord transfomration not found\n";
 	return 0;
     }
 
-    return new ElasticBeam2d(iData[0],data[0],data[1],data[2],iData[1],iData[2],
-			     *theTransf,alpha,depth,mass,cMass);
+    if (section) {
+      SectionForceDeformation *theSection = OPS_getSectionForceDeformation(sectionTag);
+      if (theSection == 0) {
+	opserr << "section not found\n";
+	return 0;
+      }
+      return new ElasticBeam2d(iData[0],iData[1],iData[2],*theSection,
+			       *theTransf,alpha,depth,mass,cMass);
+    } else {
+      return new ElasticBeam2d(iData[0],data[0],data[1],data[2],iData[1],iData[2],
+			       *theTransf,alpha,depth,mass,cMass);
+    }
 }
 
 int OPS_ElasticBeam2d(Domain& theDomain, const ID& elenodes, ID& eletags)
@@ -164,7 +188,7 @@ int OPS_ElasticBeam2d(Domain& theDomain, const ID& elenodes, ID& eletags)
     }
 
     // check transf
-    CrdTransf* theTransf = OPS_GetCrdTransf(transfTag);
+    CrdTransf* theTransf = OPS_getCrdTransf(transfTag);
     if(theTransf == 0) {
 	opserr<<"coord transfomration not found\n";
 	return -1;
@@ -220,8 +244,7 @@ ElasticBeam2d::ElasticBeam2d(int tag, double a, double e, double i,
 			     double Alpha, double depth, double r, int cm)
   :Element(tag,ELE_TAG_ElasticBeam2d), 
   A(a), E(e), I(i), alpha(Alpha), d(depth), rho(r), cMass(cm),
-  Q(6), q(3),
-  connectedExternalNodes(2), theCoordTransf(0)
+  Q(6), q(3), connectedExternalNodes(2), theCoordTransf(0)
 {
   connectedExternalNodes(0) = Nd1;
   connectedExternalNodes(1) = Nd2;
@@ -244,6 +267,54 @@ ElasticBeam2d::ElasticBeam2d(int tag, double a, double e, double i,
   // set node pointers to NULL
   theNodes[0] = 0;
   theNodes[1] = 0;
+}
+
+ElasticBeam2d::ElasticBeam2d(int tag, int Nd1, int Nd2, SectionForceDeformation &section,  
+			     CrdTransf &coordTransf, double Alpha, double depth, double r, int cm)
+  :Element(tag,ELE_TAG_ElasticBeam2d), alpha(Alpha), d(depth), rho(r), cMass(cm),
+  Q(6), q(3), connectedExternalNodes(2), theCoordTransf(0)
+{
+  E = 1.0;
+  rho = r;
+  cMass = cm;
+
+  const Matrix &sectTangent = section.getInitialTangent();
+  const ID &sectCode = section.getType();
+  for (int i=0; i<sectCode.Size(); i++) {
+    int code = sectCode(i);
+    switch(code) {
+    case SECTION_RESPONSE_P:
+      A = sectTangent(i,i);
+      break;
+    case SECTION_RESPONSE_MZ:
+      I = sectTangent(i,i);
+      break;
+    default:
+      break;
+    }
+  }
+  
+  connectedExternalNodes(0) = Nd1;
+  connectedExternalNodes(1) = Nd2;
+  
+  theCoordTransf = coordTransf.getCopy2d();
+  
+  if (!theCoordTransf) {
+    opserr << "ElasticBeam2d::ElasticBeam2d -- failed to get copy of coordinate transformation\n";
+    exit(-1);
+  }
+
+  q0[0] = 0.0;
+  q0[1] = 0.0;
+  q0[2] = 0.0;
+
+  p0[0] = 0.0;
+  p0[1] = 0.0;
+  p0[2] = 0.0;
+
+  // set node pointers to NULL
+  theNodes[0] = 0;
+  theNodes[1] = 0;      
 }
 
 ElasticBeam2d::~ElasticBeam2d()
@@ -479,6 +550,46 @@ ElasticBeam2d::addLoad(ElementalLoad *theLoad, double loadFactor)
     q0[1] -= M;
     q0[2] += M;
   }
+
+  else if (type == LOAD_TAG_Beam2dPartialUniformLoad) {
+    double waa = data(2)*loadFactor;  // Axial
+    double wab = data(3)*loadFactor;  // Axial
+    double wya = data(0)*loadFactor;  // Transverse
+    double wyb = data(1)*loadFactor;  // Transverse
+    double a = data(4)*L;
+    double b = data(5)*L;
+
+	// auxiliary values
+    double ba = b-a;
+    double ba2 = pow(b, 2.0) - pow(a, 2.0);
+    double ba3 = pow(b, 3.0) - pow(a, 3.0);
+    double ba4 = pow(b, 4.0) - pow(a, 4.0);
+    double ba5 = pow(b, 5.0) - pow(a, 5.0);
+    double z1 = wya + (wya*a)/ba - (wyb*a)/ba;
+    double wybpa = wya+wyb;
+    double wybma = wyb-wya;
+    double L2 = pow(L, 2.0);
+    double L3 = pow(L, 3.0);
+
+	// equivalent nodal forces
+	double Fyt = 0.5*wybpa*ba;
+    double V2 = (1.0/L)*(wya*ba*(a+0.5*ba)+0.5*wybma*ba*(a+(2.0/3.0)*ba));
+    double V1 = Fyt-V2;
+    double M1 = (0.5*z1*ba2) + (wybma*ba3/(3.0*ba)) - (z1*ba3*2.0/(3.0*L)) - (wybma*ba4/(2.0*L*ba)) + (z1*ba4/(4.0*L2)) + (wybma*ba5/(5.0*L2*ba));
+    double M2 = (-1.0*z1*ba3/(3.0*L)) - (wybma*ba4/(4.0*L*ba)) + (z1*ba4/(4.0*L2)) + (wybma*ba5/(5.0*L2*ba));
+    double P = waa*ba + 0.5*(wab-waa)*ba;
+    double PJ = (1.0/L)*(waa*ba*(a+0.5*ba)+0.5*(wab-waa)*ba*(a+(2.0/3.0)*ba));
+
+    // Reactions in basic system
+    p0[0] -= P;
+    p0[1] -= V1;
+    p0[2] -= V2;
+
+    // Fixed end forces in basic system
+    q0[0] -= PJ;
+    q0[1] -= M1;
+    q0[2] -= M2;
+}
 
   else if (type == LOAD_TAG_Beam2dPointLoad) {
     double P = data(0)*loadFactor;
@@ -781,7 +892,9 @@ ElasticBeam2d::Print(OPS_Stream &s, int flag)
     s << "EL_BEAM\t" << eleTag << "\t";
     s << 0 << "\t" << 0 << "\t" << connectedExternalNodes(0) << "\t" << connectedExternalNodes(1) ;
     s << "0\t0.0000000\n";
-  } else {
+  }
+
+  if (flag == OPS_PRINT_CURRENTSTATE) {
     this->getResistingForce();
     s << "\nElasticBeam2d: " << this->getTag() << endln;
     s << "\tConnected Nodes: " << connectedExternalNodes ;
@@ -796,6 +909,18 @@ ElasticBeam2d::Print(OPS_Stream &s, int flag)
       << " " << V+p0[1] << " " << M1 << endln;
     s << "\tEnd 2 Forces (P V M): " << P
       << " " << -V+p0[2] << " " << M2 << endln;
+  }
+
+  if (flag == OPS_PRINT_PRINTMODEL_JSON) {
+    s << "\t\t\t{";
+	s << "\"name\": " << this->getTag() << ", ";
+	s << "\"type\": \"ElasticBeam2d\", ";
+    s << "\"nodes\": [" << connectedExternalNodes(0) << ", " << connectedExternalNodes(1) << "], ";
+	s << "\"E\": " << E << ", ";
+	s << "\"A\": "<< A << ", ";
+    s << "\"Iz\": "<< I << ", ";
+    s << "\"massperlength\": "<< rho << ", ";
+    s << "\"crdTransformation\": \"" << theCoordTransf->getTag() << "\"}";
   }
 }
 

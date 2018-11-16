@@ -593,7 +593,7 @@ SSPquadUP::addInertiaLoadToUnbalance(const Vector &accel)
 	const Vector &Raccel4 = theNodes[3]->getRV(accel);
 
 	if (3 != Raccel1.Size() || 3 != Raccel2.Size() || 3 != Raccel3.Size() || 3 != Raccel4.Size()) {
-    	opserr << "SSPquadUP::addInertiaLoadToUnbalance matrix and vector sizes are incompatable\n";
+    	opserr << "SSPquadUP::addInertiaLoadToUnbalance matrix and vector sizes are incompatible\n";
     	return -1;
 	}
 
@@ -614,7 +614,7 @@ SSPquadUP::addInertiaLoadToUnbalance(const Vector &accel)
 	// compute mass matrix
 	this->getMass();
 
-	for (int i = 0; i < 8; i++) {
+	for (int i = 0; i < 12; i++) {
 		Q(i) += -mMass(i,i)*ra[i];
 	}
 	
@@ -853,7 +853,7 @@ SSPquadUP::recvSelf(int commitTag, Channel &theChannel, FEM_ObjectBroker &theBro
 
     // SSPquadUP creates a Vector, receives the Vector and then sets the 
     // internal data with the data in the Vector
-    static Vector data(6);
+    static Vector data(15);
     res += theChannel.recvVector(dataTag, commitTag, data);
     if (res < 0) {
         opserr << "WARNING SSPquadUP::recvSelf() - failed to receive Vector\n";
@@ -928,12 +928,26 @@ SSPquadUP::displaySelf(Renderer &theViewer, int displayMode, float fact, const c
 void
 SSPquadUP::Print(OPS_Stream &s, int flag)
 {
-    opserr << "SSPquadUP, element id:  " << this->getTag() << endln;
-    opserr << "   Connected external nodes:  ";
-    for (int i = 0; i < SQUP_NUM_NODE; i++) {
-        opserr << mExternalNodes(i) << " ";
+    if (flag == OPS_PRINT_CURRENTSTATE) {
+        opserr << "SSPquadUP, element id:  " << this->getTag() << endln;
+        opserr << "   Connected external nodes:  ";
+        for (int i = 0; i < SQUP_NUM_NODE; i++) {
+            opserr << mExternalNodes(i) << " ";
+        }
     }
-    return;
+    
+    if (flag == OPS_PRINT_PRINTMODEL_JSON) {
+        s << "\t\t\t{";
+        s << "\"name\": " << this->getTag() << ", ";
+        s << "\"type\": \"SSPquadUP\", ";
+        s << "\"nodes\": [" << mExternalNodes(0) << ", ";
+        s << mExternalNodes(1) << ", ";
+        s << mExternalNodes(2) << ", ";
+        s << mExternalNodes(3) << "], ";
+        s << "\"thickness\": " << mThickness << ", ";
+        s << "\"bodyForces\": [" << b[0] << ", " << b[1] << "], ";
+        s << "\"material\": \"" << theMaterial->getTag() << "\"}";
+    }
 }
 
 Response*
@@ -971,23 +985,13 @@ SSPquadUP::setParameter(const char **argv, int argc, Parameter &param)
         return param.addObject(10, this);     
     } else if (strcmp(argv[0],"pressureLeftSide") == 0) {
         return param.addObject(11, this);
-	} else if (strcmp(argv[0],"pressureRightSide") == 0) {
+    } else if (strcmp(argv[0],"pressureRightSide") == 0) {
         return param.addObject(12, this);
-    }
+    } else if (strcmp(argv[0],"b1") == 0) {
+      return param.addObject(13,this);
+    } else if (strcmp(argv[0],"b2") == 0) {
+      return param.addObject(14,this);
     //LM change
-  
-    // now check for material parameters
-    else if ((strstr(argv[0],"material") != 0) && (strcmp(argv[0],"materialState") != 0)) {
-
-        if (argc < 3) {
-                return -1;
-                }
-        int pointNum = atoi(argv[1]);
-        if (pointNum > 0 && pointNum <= 4) {
-                return theMaterial->setParameter(&argv[2], argc-2, param);
-        } else {
-                return -1;
-                }
     } else {
         // default is to call setParameter in the material
         int matRes = res;
@@ -1039,6 +1043,12 @@ SSPquadUP::updateParameter(int parameterID, Information &info)
         pressureRightSide = info.theDouble;
         this->setPressureLoadAtNodes();
         return 0;		
+    } else if (parameterID == 13) {
+      b[0] = info.theDouble;
+      return 0;
+    } else if (parameterID == 14) {
+      b[1] = info.theDouble;
+      return 0;
 	//LM change
 	} else {
         // update the material parameter

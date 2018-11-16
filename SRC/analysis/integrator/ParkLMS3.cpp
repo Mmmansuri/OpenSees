@@ -188,7 +188,11 @@ int ParkLMS3::formEleTangent(FE_Element *theEle)
         theEle->addKiToTang(c1);
         theEle->addCtoTang(c2);
         theEle->addMtoTang(c3);
-    }
+    } else if (statusFlag == HALL_TANGENT)  {
+        theEle->addKtToTang(c1*cFactor);
+        theEle->addKiToTang(c1*iFactor);
+        theEle->addCtoTang(c2);
+        theEle->addMtoTang(c3);    }
     
     return 0;
 }    
@@ -367,6 +371,12 @@ int ParkLMS3::update(const Vector &deltaU)
     return 0;
 }    
 
+
+const Vector &
+ParkLMS3::getVel()
+{
+  return *Udot;
+}
 
 int ParkLMS3::sendSelf(int cTag, Channel &theChannel)
 {

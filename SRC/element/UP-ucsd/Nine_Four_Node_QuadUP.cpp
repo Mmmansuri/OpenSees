@@ -92,7 +92,7 @@ void* OPS_NineFourNodeQuadUP()
 
     return new NineFourNodeQuadUP(tags[0],tags[1],tags[2],tags[3],tags[4],
 				  tags[5],tags[6],tags[7],tags[8],tags[9],
-				  *mat,"PlainStrain",thk,data[0],data[1],data[2],data[3],
+				  *mat,"PlaneStrain",thk,data[0],data[1],data[2],data[3],
 				  opt[0],opt[1]);
 }
 
@@ -569,7 +569,6 @@ NineFourNodeQuadUP::update()
 
 
     // Set the material strain
-
     ret += theMaterial[i]->setTrialStrain(eps);
 
   }
@@ -1132,7 +1131,7 @@ NineFourNodeQuadUP::addInertiaLoadToUnbalance(const Vector &accel)
 
       if ((i<nenp && 3 != Raccel.Size()) || (i>=nenp && 2 != Raccel.Size())) {
 
-         opserr << "NineFourNodeQuadUP::addInertiaLoadToUnbalance matrix and vector sizes are incompatable\n";
+         opserr << "NineFourNodeQuadUP::addInertiaLoadToUnbalance matrix and vector sizes are incompatible\n";
 
          return -1;
 
@@ -1312,7 +1311,7 @@ NineFourNodeQuadUP::getResistingForceIncInertia()
 
     if ((i<nenp && 3 != accel.Size()) || (i>=nenp && 2 != accel.Size())) {
 
-      opserr << "NineFourNodeQuadUP::getResistingForceIncInertia matrix and vector sizes are incompatable\n";
+      opserr << "NineFourNodeQuadUP::getResistingForceIncInertia matrix and vector sizes are incompatible\n";
 
          return P;
 
@@ -1366,7 +1365,7 @@ NineFourNodeQuadUP::getResistingForceIncInertia()
 
       if ((i<nenp && 3 != vel.Size()) || (i>=nenp && 2 != vel.Size())) {
 
-         opserr << "NineFourNodeQuadUP::getResistingForceIncInertia matrix and vector sizes are incompatable\n";
+         opserr << "NineFourNodeQuadUP::getResistingForceIncInertia matrix and vector sizes are incompatible\n";
 
          return P;
 
@@ -1732,7 +1731,7 @@ NineFourNodeQuadUP::setResponse(const char **argv, int argc, OPS_Stream &output)
   char outputData[32];
 
   output.tag("ElementOutput");
-  output.attr("eleType","NineFOurNodeQuadUP");
+  output.attr("eleType","NineFourNodeQuadUP");
   output.attr("eleTag",this->getTag());
   for (int i=1; i<=9; i++) {
     sprintf(outputData,"node%d",i);
@@ -1865,7 +1864,7 @@ NineFourNodeQuadUP::setParameter(const char **argv, int argc, Parameter &param)
       return -1;
 
     int pointNum = atoi(argv[1]);
-    if (pointNum > 0 && pointNum <= 4)
+    if (pointNum > 0 && pointNum <= 9)
       return theMaterial[pointNum-1]->setParameter(&argv[2], argc-2, param);
     else
       return -1;
@@ -1874,7 +1873,7 @@ NineFourNodeQuadUP::setParameter(const char **argv, int argc, Parameter &param)
   // otherwise it could be a for all material pointer
   else {
     int matRes = res;
-    for (int i=0; i<4; i++) {
+    for (int i=0; i<9; i++) {
       matRes =  theMaterial[i]->setParameter(argv, argc, param);
       if (matRes != -1)
 	res = matRes;

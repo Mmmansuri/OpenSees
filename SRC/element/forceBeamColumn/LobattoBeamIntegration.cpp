@@ -266,5 +266,11 @@ LobattoBeamIntegration::getSectionWeights(int numSections, double L,
 void
 LobattoBeamIntegration::Print(OPS_Stream &s, int flag)
 {
-  s << "Lobatto" << endln;
+	if (flag == OPS_PRINT_PRINTMODEL_JSON) {
+		s << "{\"type\": \"Lobatto\"}";
+	}
+    
+	else {
+		s << "Lobatto" << endln;
+	}
 }

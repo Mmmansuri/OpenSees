@@ -94,6 +94,7 @@ Concrete01::Concrete01
    CminStrain(0.0), CendStrain(0.0),
    Cstrain(0.0), Cstress(0.0) 
 {
+	EnergyP = 0;	//SAJalali
   // Make all concrete parameters negative
   if (fpc > 0.0)
     fpc = -fpc;
@@ -127,6 +128,7 @@ Concrete01::Concrete01():UniaxialMaterial(0, MAT_TAG_Concrete01),
  CminStrain(0.0), CunloadSlope(0.0), CendStrain(0.0),
  Cstrain(0.0), Cstress(0.0)
 {
+	EnergyP = 0;	//SAJalali
   // Set trial values
   this->revertToLastCommit();
   
@@ -405,6 +407,9 @@ int Concrete01::commitState ()
    CunloadSlope = TunloadSlope;
    CendStrain = TendStrain;
 
+   //added by SAJalali
+   EnergyP += 0.5*(Cstress + Tstress)*(Tstrain - Cstrain);
+
    // State variables
    Cstrain = Tstrain;
    Cstress = Tstress;
@@ -543,11 +548,24 @@ int Concrete01::recvSelf (int commitTag, Channel& theChannel,
 
 void Concrete01::Print (OPS_Stream& s, int flag)
 {
-   s << "Concrete01, tag: " << this->getTag() << endln;
-   s << "  fpc: " << fpc << endln;
-   s << "  epsc0: " << epsc0 << endln;
-   s << "  fpcu: " << fpcu << endln;
-   s << "  epscu: " << epscu << endln;
+  if (flag == OPS_PRINT_PRINTMODEL_MATERIAL) {      
+    s << "Concrete01, tag: " << this->getTag() << endln;
+    s << "  fpc: " << fpc << endln;
+    s << "  epsc0: " << epsc0 << endln;
+    s << "  fpcu: " << fpcu << endln;
+    s << "  epscu: " << epscu << endln;
+  }
+  
+  if (flag == OPS_PRINT_PRINTMODEL_JSON) {
+    s << "\t\t\t{";
+	s << "\"name\": \"" << this->getTag() << "\", ";
+	s << "\"type\": \"Concrete01\", ";
+	s << "\"Ec\": " << 2.0*fpc/epsc0 << ", ";
+	s << "\"fc\": " << fpc << ", ";
+    s << "\"epsc\": " << epsc0 << ", ";
+    s << "\"fcu\": " << fpcu << ", ";
+    s << "\"epscu\": " << epscu << "}";
+  }
 }
 
 

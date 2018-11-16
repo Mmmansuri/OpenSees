@@ -54,10 +54,16 @@ class TransientIntegrator : public IncrementalIntegrator
     virtual ~TransientIntegrator();
 
     virtual int formTangent(int statFlag);
+    virtual int formTangent(int statusFlag, 
+			    double iFactor,
+			    double cFactor);    
+
     virtual int formUnbalance(void);
     virtual int formEleResidual(FE_Element *theEle);
     virtual int formNodUnbalance(DOF_Group *theDof);    
 
+    virtual const Vector& getVel(void) = 0; // For modal damping
+    
     virtual int initialize(void) {return 0;};
 
   protected:

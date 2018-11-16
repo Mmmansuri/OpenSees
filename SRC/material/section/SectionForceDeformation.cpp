@@ -39,18 +39,24 @@
 
 #include <string.h>
 
-double invert2by2Matrix(const Matrix &a, Matrix &b);
-double invert3by3Matrix(const Matrix &a, Matrix &b);
-void invertMatrix(int n, const Matrix &a, Matrix &b);
-
-
 #include <TaggedObject.h>
 #include <MapOfTaggedObjects.h>
+#include <MapOfTaggedObjectsIter.h>
 
 static MapOfTaggedObjects theSectionForceDeformationObjects;
 
 bool OPS_addSectionForceDeformation(SectionForceDeformation *newComponent) {
   return theSectionForceDeformationObjects.addComponent(newComponent);
+}
+
+bool OPS_removeSectionForceDeformation(int tag)
+{
+    TaggedObject* obj = theSectionForceDeformationObjects.removeComponent(tag);
+    if (obj != 0) {
+	delete obj;
+	return true;
+    }
+    return false;
 }
 
 SectionForceDeformation *OPS_getSectionForceDeformation(int tag) {
@@ -69,9 +75,34 @@ void OPS_clearAllSectionForceDeformation(void) {
   theSectionForceDeformationObjects.clearAll();
 }
 
+void OPS_printSectionForceDeformation(OPS_Stream &s, int flag) {
+
+  if (flag == OPS_PRINT_PRINTMODEL_JSON) {
+    s << "\t\t\"sections\": [\n";    
+    MapOfTaggedObjectsIter theObjects = theSectionForceDeformationObjects.getIter();
+    theObjects.reset();
+    TaggedObject *theObject;
+    int count = 0;
+    int numComponents = theSectionForceDeformationObjects.getNumComponents();
+    while ((theObject = theObjects()) != 0) {
+      SectionForceDeformation *theSection = (SectionForceDeformation *)theObject;
+      theSection->Print(s, flag);
+      if (count < numComponents-1)
+	s << ",\n";
+      count++;
+    }
+    s << "\n\t\t]";
+  }
+}
 
 SectionForceDeformation::SectionForceDeformation(int tag, int classTag)
   :Material(tag,classTag), fDefault(0), sDefault(0)
+{
+
+}
+
+SectionForceDeformation::SectionForceDeformation()
+    : Material(0, 0), fDefault(0), sDefault(0)
 {
 
 }
@@ -104,14 +135,8 @@ SectionForceDeformation::getSectionFlexibility ()
     if (k(0,0) != 0.0)
       (*fDefault)(0,0) = 1.0/k(0,0);
     break;
-  case 2:
-    invert2by2Matrix(k,*fDefault);
-    break;
-  case 3:
-    invert3by3Matrix(k,*fDefault);
-    break;
   default:
-    invertMatrix(order,k,*fDefault);
+    k.Invert(*fDefault);
     break;
   }
 
@@ -138,14 +163,8 @@ SectionForceDeformation::getInitialFlexibility ()
     if (k(0,0) != 0.0)
       (*fDefault)(0,0) = 1.0/k(0,0);
     break;
-  case 2:
-    invert2by2Matrix(k,*fDefault);
-    break;
-  case 3:
-    invert3by3Matrix(k,*fDefault);
-    break;
   default:
-    invertMatrix(order,k,*fDefault);
+    k.Invert(*fDefault);
     break;
   }
   
@@ -483,12 +502,20 @@ SectionForceDeformation::setTrialSectionDeformation(const Vector& nouse, const V
   return -1;
 }
 
-//static Vector errRes(3);
+static Vector errRes(3);
 
 const Vector &
 SectionForceDeformation::getTemperatureStress(const Vector &tData) //PK
 {
   opserr << "SectionForceDeformation::getTemperatureStress(double *dataMixed) - should not be called\n";
-  return this->getStressResultant();
+  errRes.resize(this->getStressResultant().Size());
+  return errRes;
+  //  return this->getStressResultant();
 }
 //--- Adding Thermal Functions:[END]   by UoE OpenSees Group ----//
+
+const Vector& SectionForceDeformation::getThermalElong(void)
+{
+  errRes.resize(this->getStressResultant().Size());
+  return errRes;
+}

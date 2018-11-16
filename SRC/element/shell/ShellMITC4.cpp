@@ -22,7 +22,8 @@
 // $Date: 2011/03/10 22:51:21 $
 // $Source: /usr/local/cvs/OpenSees/SRC/element/shell/ShellMITC4.cpp,v $
 
-// Written: Leopoldo Tesser, Diego A. Talledo, Véronique Le Corvec
+// Original implementation: Ed "C++" Love
+// Reimplementation: Leopoldo Tesser, Diego A. Talledo, Véronique Le Corvec
 //
 // Bathe MITC 4 four node shell element with membrane and drill
 // Ref: Dvorkin,Bathe, A continuum mechanics based four node shell
@@ -45,10 +46,12 @@
 #include <R3vectors.h>
 #include <Renderer.h>
 #include <ElementResponse.h>
+#include <ElementalLoad.h>
 
 #include <Channel.h>
 #include <FEM_ObjectBroker.h>
 #include <elementAPI.h>
+#include <map>
 
 #define min(a,b) ( (a)<(b) ? (a):(b) )
 
@@ -67,7 +70,7 @@ OPS_ShellMITC4(void)
   int numArgs = OPS_GetNumRemainingInputArgs();
   
   if (numArgs < 6) {
-    opserr << "Want: element ShellMITC4 $tag $iNode $jNoe $kNode $lNode $secTag";
+    opserr << "Want: element ShellMITC4 $tag $iNode $jNoe $kNode $lNode $secTag<-updateBasis>";
     return 0;	
   }
   
@@ -76,6 +79,13 @@ OPS_ShellMITC4(void)
   if (OPS_GetInt(&numData, iData) != 0) {
     opserr << "WARNING invalid integer tag: element ShellMITC4 \n";
     return 0;
+  }
+  bool updateBasis = false;
+
+  if (numArgs == 7) {
+    const char* type = OPS_GetString();    
+    if(strcmp(type,"-updateBasis") == 0) 
+      updateBasis = true;
   }
 
   SectionForceDeformation *theSection = OPS_getSectionForceDeformation(iData[5]);
@@ -86,9 +96,98 @@ OPS_ShellMITC4(void)
   }
   
   theElement = new ShellMITC4(iData[0], iData[1], iData[2], iData[3],
-			      iData[4], *theSection);
+			      iData[4], *theSection, updateBasis);
 
   return theElement;
+}
+
+void *
+OPS_ShellMITC4(const ID& info)
+{
+
+    if (info.Size() == 0) {
+	opserr << "WARNING: info is empty -- ShellMITC4\n";
+	return 0;
+    }
+
+    // save data
+    static std::map<int,Vector> meshdata;
+    if (info(0) == 1) {
+
+	// check input
+	if (info.Size() < 2) {
+	    opserr << "WARNING: need info -- inmesh, meshtag\n";
+	    return 0;
+	}
+	if (OPS_GetNumRemainingInputArgs() < 1) {
+	    opserr << "WARNING: insuficient arguments -- secTag <-updateBasis>\n";
+	    return 0;
+	}
+
+	// save data
+	Vector& mdata = meshdata[info(1)];
+	mdata.resize(2);
+	mdata.Zero();
+
+	// get secTag
+	int numdata = 1;
+	int secTag;
+	if (OPS_GetIntInput(&numdata, &secTag) < 0) {
+	    opserr << "WARNING: failed to get section tag -- ShellMITC4\n";
+	    return 0;
+	}
+	mdata(0) = (double)secTag;
+
+	// update basis
+	if (OPS_GetNumRemainingInputArgs() > 0) {
+	    const char* type = OPS_GetString();
+	    if (strcmp(type, "-updateBasis") == 0) {
+		mdata(1) = 1;
+	    }
+	}
+
+	return &meshdata;
+    }
+
+    // load data
+    if (info(0) == 2) {
+	if (numShellMITC4 == 0) {
+//    opserr << "Using ShellMITC4 - Developed by: Leopoldo Tesser, Diego A. Talledo, Véronique Le Corvec\n";
+	    numShellMITC4++;
+	}
+
+	if (info.Size() < 7) {
+	    opserr << "WARNING: need info -- inmesh, meshtag, eleTag, nd1, nd2, nd3, nd4\n";
+	    return 0;
+	}
+	int eleTag = info(2);
+
+	// get data
+	Vector& mdata = meshdata[info(1)];
+	if (mdata.Size() < 2) {
+	    return 0;
+	}
+
+	// get section
+	int secTag = (int)mdata(0);
+	SectionForceDeformation *theSection = OPS_getSectionForceDeformation(secTag);
+	if (theSection == 0) {
+	    opserr << "ERROR:  element ShellMITC4 " << info(2) << "section " << secTag << " not found\n";
+	    return 0;
+	}
+
+	// update basis
+	bool updateBasis = false;
+	if (mdata(1) == 1) {
+	    updateBasis = true;
+	}
+
+	return new ShellMITC4(info(2), info(3), info(4), info(5),
+			      info(6), *theSection, updateBasis);
+    }
+    
+
+    return 0;
 }
 
 
@@ -110,7 +209,7 @@ double ShellMITC4::wg[4] ;
 //null constructor
 ShellMITC4::ShellMITC4( ) :
 Element( 0, ELE_TAG_ShellMITC4 ),
-connectedExternalNodes(4), load(0), Ki(0)
+connectedExternalNodes(4), load(0), Ki(0), doUpdateBasis(false)
 { 
   for (int i = 0 ;  i < 4; i++ ) 
     materialPointers[i] = 0;
@@ -129,6 +228,12 @@ connectedExternalNodes(4), load(0), Ki(0)
   wg[1] = 1.0;
   wg[2] = 1.0;
   wg[3] = 1.0;
+
+  applyLoad = 0;
+
+  appliedB[0] = 0.0;
+  appliedB[1] = 0.0;
+  appliedB[2] = 0.0;
 }
 
 
@@ -137,11 +242,12 @@ connectedExternalNodes(4), load(0), Ki(0)
 ShellMITC4::ShellMITC4(  int tag, 
                          int node1,
                          int node2,
-   	                     int node3,
+			 int node3,
                          int node4,
-	                     SectionForceDeformation &theMaterial ) :
+			 SectionForceDeformation &theMaterial,
+			 bool UpdateBasis) :
 Element( tag, ELE_TAG_ShellMITC4 ),
-connectedExternalNodes(4), load(0), Ki(0)
+connectedExternalNodes(4), load(0), Ki(0), doUpdateBasis(UpdateBasis)
 {
   int i;
 
@@ -174,6 +280,12 @@ connectedExternalNodes(4), load(0), Ki(0)
   wg[1] = 1.0;
   wg[2] = 1.0;
   wg[3] = 1.0;
+
+  applyLoad = 0;
+
+  appliedB[0] = 0.0;
+  appliedB[1] = 0.0;
+  appliedB[2] = 0.0;
 
  }
 //******************************************************************
@@ -219,6 +331,12 @@ void  ShellMITC4::setDomain( Domain *theDomain )
        opserr << "ShellMITC4::setDomain - node " << connectedExternalNodes(i);
        opserr << " NEEDS 6 dof - GARBAGE RESULTS or SEGMENTATION FAULT WILL FOLLOW\n";
      }       
+     init_disp[i][0] = nodeDisp(0);
+     init_disp[i][1] = nodeDisp(1);
+     init_disp[i][2] = nodeDisp(2);
+     init_disp[i][3] = nodeDisp(3);
+     init_disp[i][4] = nodeDisp(4);
+     init_disp[i][5] = nodeDisp(5);
   }
 
   //compute drilling stiffness penalty parameter
@@ -318,45 +436,57 @@ int  ShellMITC4::revertToStart( )
 //print out element data
 void  ShellMITC4::Print( OPS_Stream &s, int flag )
 {
-  if (flag == -1) {
-    int eleTag = this->getTag();
-    s << "EL_ShellMITC4\t" << eleTag << "\t";
-    s << eleTag << "\t" << 1; 
-    s  << "\t" << connectedExternalNodes(0) << "\t" << connectedExternalNodes(1);
-    s  << "\t" << connectedExternalNodes(2) << "\t" << connectedExternalNodes(3) << "\t0.00";
-    s << endln;
-    s << "PROP_3D\t" << eleTag << "\t";
-    s << eleTag << "\t" << 1; 
-    s  << "\t" << -1 << "\tSHELL\t1.0\0.0";
-    s << endln;
-  }  else if (flag < -1) {
-
-     int counter = (flag + 1) * -1;
-     int eleTag = this->getTag();
-     int i,j;
-     for ( i = 0; i < 4; i++ ) {
-       const Vector &stress = materialPointers[i]->getStressResultant();
-       
-       s << "STRESS\t" << eleTag << "\t" << counter << "\t" << i << "\tTOP";
-       for (j=0; j<6; j++)
-	 s << "\t" << stress(j);
-       s << endln;
-     }
-
-   } else {
-    s << endln ;
-    s << "MITC4 Non-Locking Four Node Shell \n" ;
-    s << "Element Number: " << this->getTag() << endln ;
-    s << "Node 1 : " << connectedExternalNodes(0) << endln ;
-    s << "Node 2 : " << connectedExternalNodes(1) << endln ;
-    s << "Node 3 : " << connectedExternalNodes(2) << endln ;
-    s << "Node 4 : " << connectedExternalNodes(3) << endln ;
+    if (flag == -1) {
+        int eleTag = this->getTag();
+        s << "EL_ShellMITC4\t" << eleTag << "\t";
+        s << eleTag << "\t" << 1;
+        s << "\t" << connectedExternalNodes(0) << "\t" << connectedExternalNodes(1);
+        s << "\t" << connectedExternalNodes(2) << "\t" << connectedExternalNodes(3) << "\t0.00";
+        s << endln;
+        s << "PROP_3D\t" << eleTag << "\t";
+        s << eleTag << "\t" << 1;
+        s << "\t" << -1 << "\tSHELL\t1.0\0.0";
+        s << endln;
+    }
     
-    s << "Material Information : \n " ;
-    materialPointers[0]->Print( s, flag ) ;
+    if (flag < -1) {
+        
+        int counter = (flag + 1) * -1;
+        int eleTag = this->getTag();
+        int i, j;
+        for (i = 0; i < 4; i++) {
+            const Vector &stress = materialPointers[i]->getStressResultant();
+            
+            s << "STRESS\t" << eleTag << "\t" << counter << "\t" << i << "\tTOP";
+            for (j = 0; j < 6; j++)
+                s << "\t" << stress(j);
+            s << endln;
+        }
+    }
     
-    s << endln ;
-  }
+    if (flag == OPS_PRINT_CURRENTSTATE) {
+        s << endln;
+        s << "MITC4 Non-Locking Four Node Shell \n";
+        s << "Element Number: " << this->getTag() << endln;
+        s << "Node 1 : " << connectedExternalNodes(0) << endln;
+        s << "Node 2 : " << connectedExternalNodes(1) << endln;
+        s << "Node 3 : " << connectedExternalNodes(2) << endln;
+        s << "Node 4 : " << connectedExternalNodes(3) << endln;
+        
+        s << "Material Information : \n ";
+        materialPointers[0]->Print(s, flag);
+        
+        s << endln;
+    }
+    
+    if (flag == OPS_PRINT_PRINTMODEL_JSON) {
+        s << "\t\t\t{";
+        s << "\"name\": " << this->getTag() << ", ";
+        s << "\"type\": \"ShellMITC4\", ";
+        s << "\"nodes\": [" << connectedExternalNodes(0) << ", " << connectedExternalNodes(1) << ", ";
+        s << connectedExternalNodes(2) << ", " << connectedExternalNodes(3) << "], ";
+        s << "\"section\": \"" << materialPointers[0]->getTag() << "\"}";
+    }
 }
 
 Response*
@@ -823,6 +953,11 @@ void  ShellMITC4::zeroLoad( )
 {
   if (load != 0)
     load->Zero();
+  applyLoad = 0;
+
+  appliedB[0] = 0.0;
+  appliedB[1] = 0.0;
+  appliedB[2] = 0.0;
 
   return ;
 }
@@ -831,8 +966,25 @@ void  ShellMITC4::zeroLoad( )
 int 
 ShellMITC4::addLoad(ElementalLoad *theLoad, double loadFactor)
 {
-  opserr << "ShellMITC4::addLoad - load type unknown for ele with tag: " << this->getTag() << endln;
+  // opserr << "ShellMITC4::addLoad - load type unknown for ele with tag: " << this->getTag() << endln;
+  // return -1;
+  int type;
+  const Vector &data = theLoad->getData(type, loadFactor);
+
+  if (type == LOAD_TAG_SelfWeight) {
+      // added compatability with selfWeight class implemented for all continuum elements, C.McGann, U.W.
+      applyLoad = 1;
+      appliedB[0] += loadFactor*data(0);
+      appliedB[1] += loadFactor*data(1);
+      appliedB[2] += loadFactor*data(2);
+      // opserr << "loadfactor = " << loadFactor << endln;
+      // opserr << "      data = " << data;
+      // opserr << "      b    = " << b   ;
+      return 0;
+  } else {
+    opserr << "ShellMITC4::addLoad() - ele with tag: " << this->getTag() << " does not deal with load type: " << type << "\n";
   return -1;
+  }
 }
 
 
@@ -1126,7 +1278,8 @@ ShellMITC4::formResidAndTangent( int tang_flag )
   resid.Zero( ) ;
   
 //start Yuli Huang (yulihuang@gmail.com) & Xinzheng Lu (luxz@tsinghua.edu.cn)
-  updateBasis( );
+  if (doUpdateBasis == true)
+    updateBasis( );
 //end Yuli Huang (yulihuang@gmail.com) & Xinzheng Lu (luxz@tsinghua.edu.cn)
 
   double dx34 = xl[0][2]-xl[0][3];
@@ -1255,7 +1408,15 @@ ShellMITC4::formResidAndTangent( int tang_flag )
 
 
       //nodal "displacements" 
-      const Vector &ul = nodePointers[j]->getTrialDisp( ) ;
+      const Vector &ul_tmp = nodePointers[j]->getTrialDisp( ) ;
+      static Vector ul(6); ul.Zero();
+
+      ul(0) = ul_tmp(0) - init_disp[j][0];
+      ul(1) = ul_tmp(1) - init_disp[j][1];
+      ul(2) = ul_tmp(2) - init_disp[j][2];
+      ul(3) = ul_tmp(3) - init_disp[j][3];
+      ul(4) = ul_tmp(4) - init_disp[j][4];
+      ul(5) = ul_tmp(5) - init_disp[j][5];
 
       //compute the strain
       //strain += (BJ*ul) ; 
@@ -1374,6 +1535,50 @@ ShellMITC4::formResidAndTangent( int tang_flag )
 
   } //end for i gauss loop 
   
+
+  if(applyLoad == 1)
+  {
+      const int numberGauss = 4 ;
+      const int nShape = 3 ;
+      const int numberNodes = 4 ;
+      const int massIndex = nShape - 1 ;
+      double temp, rhoH;
+      //If defined, apply self-weight
+      static Vector momentum(ndf) ;
+      double ddvol = 0;
+      for ( i = 0; i < numberGauss; i++ ) {
+
+          //get shape functions    
+          shape2d( sg[i], tg[i], xl, shp, xsj ) ;
+
+          //volume element to also be saved
+          ddvol = wg[i] * xsj ;  
+
+
+          //node loop to compute accelerations
+          momentum.Zero( ) ;
+          momentum(0) = appliedB[0];
+          momentum(1) = appliedB[1];
+          momentum(2) = appliedB[2];
+
+            
+          //density
+          rhoH = materialPointers[i]->getRho() ;
+
+          //multiply acceleration by density to form momentum
+          momentum *= rhoH ;
+
+
+          //residual and tangent calculations node loops
+          for ( j=0, jj=0; j<numberNodes; j++, jj+=ndf ) {
+
+            temp = shp[massIndex][j] * ddvol ;
+
+            for ( p = 0; p < 3; p++ )
+              resid( jj+p ) += ( temp * momentum(p) ) ;
+          }
+      }
+  }
   return ;
 }
 
@@ -1486,13 +1691,18 @@ ShellMITC4::updateBasis( )
   //get two vectors (v1, v2) in plane of shell by 
   // nodal coordinate differences
 
-  const Vector &coor0 = nodePointers[0]->getCrds( ) + nodePointers[0]->getTrialDisp();
-
-  const Vector &coor1 = nodePointers[1]->getCrds( ) + nodePointers[1]->getTrialDisp();
-
-  const Vector &coor2 = nodePointers[2]->getCrds( ) + nodePointers[2]->getTrialDisp();
-  
-  const Vector &coor3 = nodePointers[3]->getCrds( ) + nodePointers[3]->getTrialDisp();
+  Vector id0(6), id1(6), id2(6), id3(6); 
+  for (int dof = 0; dof < 6; ++dof)
+  {
+    id0(dof) = init_disp[0][dof];
+    id1(dof) = init_disp[1][dof];
+    id2(dof) = init_disp[2][dof];
+    id3(dof) = init_disp[3][dof];
+  }
+  const Vector &coor0 = nodePointers[0]->getCrds( ) + nodePointers[0]->getTrialDisp() - id0;
+  const Vector &coor1 = nodePointers[1]->getCrds( ) + nodePointers[1]->getTrialDisp() - id1;
+  const Vector &coor2 = nodePointers[2]->getCrds( ) + nodePointers[2]->getTrialDisp() - id2;
+  const Vector &coor3 = nodePointers[3]->getCrds( ) + nodePointers[3]->getTrialDisp() - id3;
 
   v1.Zero( ) ;
   //v1 = 0.5 * ( coor2 + coor1 - coor3 - coor0 ) ;
@@ -1891,7 +2101,7 @@ int  ShellMITC4::sendSelf (int commitTag, Channel &theChannel)
   // Now quad sends the ids of its materials
   int matDbTag;
   
-  static ID idData(13);
+  static ID idData(14);
   
   int i;
   for (i = 0; i < 4; i++) {
@@ -1912,6 +2122,10 @@ int  ShellMITC4::sendSelf (int commitTag, Channel &theChannel)
   idData(10) = connectedExternalNodes(1);
   idData(11) = connectedExternalNodes(2);
   idData(12) = connectedExternalNodes(3);
+  if (doUpdateBasis == true)
+    idData(13) = 0;
+  else
+    idData(13) = 1;
 
   res += theChannel.sendID(dataTag, commitTag, idData);
   if (res < 0) {
@@ -1919,12 +2133,22 @@ int  ShellMITC4::sendSelf (int commitTag, Channel &theChannel)
     return res;
   }
 
-  static Vector vectData(5);
+  static Vector vectData(5+6*4);
   vectData(0) = Ktt;
   vectData(1) = alphaM;
   vectData(2) = betaK;
   vectData(3) = betaK0;
   vectData(4) = betaKc;
+
+  int pos = 0;
+  for (int node = 0; node < 4; ++node)
+  {
+    for (int dof = 0; dof < 6; ++dof)
+    {
+      vectData(5+pos) = init_disp[node][dof];
+      pos ++;
+    }
+  }
 
   res += theChannel.sendVector(dataTag, commitTag, vectData);
   if (res < 0) {
@@ -1952,7 +2176,7 @@ int  ShellMITC4::recvSelf (int commitTag,
   
   int dataTag = this->getDbTag();
 
-  static ID idData(13);
+  static ID idData(14);
   // Quad now receives the tags of its four external nodes
   res += theChannel.recvID(dataTag, commitTag, idData);
   if (res < 0) {
@@ -1965,8 +2189,12 @@ int  ShellMITC4::recvSelf (int commitTag,
   connectedExternalNodes(1) = idData(10);
   connectedExternalNodes(2) = idData(11);
   connectedExternalNodes(3) = idData(12);
+  if (idData(13) == 0)
+    doUpdateBasis = true;
+  else
+    doUpdateBasis = false;
 
-  static Vector vectData(5);
+  static Vector vectData(5 + 6*4);
   res += theChannel.recvVector(dataTag, commitTag, vectData);
   if (res < 0) {
     opserr << "WARNING ShellMITC4::sendSelf() - " << this->getTag() << " failed to send ID\n";
@@ -1978,6 +2206,18 @@ int  ShellMITC4::recvSelf (int commitTag,
   betaK = vectData(2);
   betaK0 = vectData(3);
   betaKc = vectData(4);
+  
+  
+  int pos = 0;
+  for (int node = 0; node < 4; ++node)
+  {
+    for (int dof = 0; dof < 6; ++dof)
+    {
+      init_disp[node][dof] = vectData(5+pos);
+      pos ++;
+    }
+  }
+
 
   int i;
 

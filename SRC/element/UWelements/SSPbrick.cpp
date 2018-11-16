@@ -983,16 +983,26 @@ SSPbrick::displaySelf(Renderer &theViewer, int displayMode, float fact, const ch
 void
 SSPbrick::Print(OPS_Stream &s, int flag)
 {
-  /*
-	opserr << "SSPbrick, element id:  " << this->getTag() << endln;
-	opserr << "   Connected external nodes:  ";
-	for (int i = 0; i < SSPB_NUM_NODE; i++) {
-		opserr << mExternalNodes(i) << " ";
-	}
-	opserr << endln;
-  */
-
-	return;
+    if (flag == OPS_PRINT_CURRENTSTATE) {
+        opserr << "SSPbrick, element id:  " << this->getTag() << endln;
+        opserr << "   Connected external nodes:  ";
+        for (int i = 0; i < SSPB_NUM_NODE; i++) {
+            opserr << mExternalNodes(i) << " ";
+        }
+        opserr << endln;
+    }
+    
+    if (flag == OPS_PRINT_PRINTMODEL_JSON) {
+        s << "\t\t\t{";
+        s << "\"name\": " << this->getTag() << ", ";
+        s << "\"type\": \"SSPbrick\", ";
+        s << "\"nodes\": [" << mExternalNodes(0) << ", ";
+        for (int i = 1; i < 6; i++)
+            s << mExternalNodes(i) << ", ";
+        s << mExternalNodes(7) << "], ";
+        s << "\"bodyForces\": [" << b[0] << ", " << b[1] << ", " << b[2] << "], ";
+        s << "\"material\": \"" << theMaterial->getTag() << "\"}";
+    }
 }
 
 Response*
@@ -1018,26 +1028,13 @@ SSPbrick::setParameter(const char **argv, int argc, Parameter &param)
 
     int res = -1;
 
-  	if ((strstr(argv[0],"material") != 0) && (strcmp(argv[0],"materialState") != 0)) {
+    // no element parameters, call setParameter in the material
+    int matRes;
+    matRes = theMaterial->setParameter(argv, argc, param);
 
-    	if (argc < 3) {
-      		return -1;
-		}
-
-    	int pointNum = atoi(argv[1]);
-    	if (pointNum > 0 && pointNum <= 4) {
-      		return theMaterial->setParameter(&argv[2], argc-2, param);
-    	} else {
-      		return -1;
-		}
-  	} else {
-    	int matRes;
-      	matRes = theMaterial->setParameter(argv, argc, param);
-
-      	if (matRes != -1) {
-			res = matRes;
-		}
-  	}
+    if (matRes != -1) {
+		res = matRes;
+	}
   
   return res;
 }
@@ -1141,7 +1138,7 @@ SSPbrick::GetStab(void)
 	z(6) = mNodeCrd(2,6);
 	z(7) = mNodeCrd(2,7);
 
-	// define coefficent terms for jacobian determinant
+	// define coefficient terms for jacobian determinant
     double 	a1 = x^xi;
     double 	a2 = x^et;
     double 	a3 = x^ze;

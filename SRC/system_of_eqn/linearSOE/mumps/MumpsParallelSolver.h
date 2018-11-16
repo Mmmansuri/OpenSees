@@ -75,6 +75,10 @@ class MumpsParallelSolver : public LinearSOESolver
  protected:
 
  private:
+
+  int initializeMumps(void);
+  int solveAfterInitialization(void);
+
   bool init;
   MumpsParallelSOE *theMumpsSOE;
 
@@ -84,6 +88,8 @@ class MumpsParallelSolver : public LinearSOESolver
   int icntl7;
 
   DMUMPS_STRUC_C id;
+
+  bool needsSetSize;
 };
 
 #endif

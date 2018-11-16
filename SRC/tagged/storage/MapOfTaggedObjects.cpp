@@ -61,7 +61,7 @@ int
 MapOfTaggedObjects::setSize(int newSize)
 {
     // no setSize for map template .. can only check enough space available
-    int maxSize = theMap.max_size();
+    int maxSize = int(theMap.max_size());
     if (newSize > maxSize) {
       opserr << "MapOfTaggedObjects::setSize - failed as map stl has a max size of " << maxSize << "\n";
       return -1;
@@ -78,27 +78,32 @@ MapOfTaggedObjects::addComponent(TaggedObject *newComponent)
     int tag = newComponent->getTag();
 
     // check if the ele already in map, if not we add
-    theEle = theMap.find(tag);
-    if (theEle == theMap.end()) {
-	theMap.insert(MAP_TAGGED_TYPE(tag,newComponent));
-		      
-	// check if sucessfully added 
-	theEle = theMap.find(tag);
-	if (theEle == theMap.end()) {
-	  opserr << "MapOfTaggedObjects::addComponent - map STL failed to add object with tag : " << 
-	    newComponent->getTag() << "\n";
-	  return false;
-	}
-    }
-    
-    // if ele already there map cannot add even if allowMultiple is true
-    // as the map template does not allow multiple entries wih the same tag
-    else {	
+    std::pair<MAP_TAGGED_ITERATOR,bool> res = theMap.insert(MAP_TAGGED_TYPE(tag,newComponent));    
+    if (res.second == false) {
       opserr << "MapOfTaggedObjects::addComponent - not adding as one with similar tag exists, tag: " <<
-	newComponent->getTag() << "\n";
+	tag << "\n";
       return false;
     }
-    
+
+    /*
+    theEle = theMap.find(tag);
+    if (theEle == theMap.end()) {
+      theMap.insert(MAP_TAGGED_TYPE(tag,newComponent));
+      
+      // check if sucessfully added 
+      theEle = theMap.find(tag);
+      if (theEle == theMap.end()) {
+	opserr << "MapOfTaggedObjects::addComponent - map STL failed to add object with tag : " << 
+	  newComponent->getTag() << "\n";
+	return false;
+      }
+    }  else {	
+      opserr << "MapOfTaggedObjects::addComponent - not adding as one with similar tag exists, tag: " <<
+	tag << "\n";
+      return false;
+    }
+    */
+
     return true;  // o.k.
 }
 
@@ -115,7 +120,7 @@ MapOfTaggedObjects::removeComponent(int tag)
 	return 0;
     else { // the object exists so we remove it
 	removed = (*theEle).second;
-	int ok = theMap.erase(tag);
+	int ok = int(theMap.erase(tag));
 	if (ok != 1) { // ensure the map did remove the object
 	  opserr << "MapOfTaggedObjects::removeComponent - map STL failed to remove object with tag " << 
 	    tag << "\n";
@@ -130,7 +135,7 @@ MapOfTaggedObjects::removeComponent(int tag)
 int
 MapOfTaggedObjects::getNumComponents(void) const
 {
-    return theMap.size();
+    return int(theMap.size());
 }
 
 
@@ -198,6 +203,7 @@ MapOfTaggedObjects::clearAll(bool invokeDestructor)
 void
 MapOfTaggedObjects::Print(OPS_Stream &s, int flag)
 {
+    s << "\nnumComponents: " << this->getNumComponents();
     // go through the array invoking Print on non-zero entries
     MAP_TAGGED_ITERATOR p = theMap.begin();
     while (p != theMap.end()) {

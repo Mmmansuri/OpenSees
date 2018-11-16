@@ -123,8 +123,9 @@ BandGenLinLapackSolver::solve(void)
     else  {
 	// solve only using factored matrix
 	unsigned int sizeC = 1;
-	//DGBTRS("N", &sizeC, &n,&kl,&ku,&nrhs,Aptr,&ldA,iPIV,Xptr,&ldB,&info);
-	DGBTRS("N", &n,&kl,&ku,&nrhs,Aptr,&ldA,iPIV,Xptr,&ldB,&info);
+	//DGBTRS("N",&sizeC,&n,&kl,&ku,&nrhs,Aptr,&ldA,iPIV,Xptr,&ldB,&info);
+    char type[] = "N";
+	DGBTRS(type,&n,&kl,&ku,&nrhs,Aptr,&ldA,iPIV,Xptr,&ldB,&info);
     }}
 #else
     {if (theSOE->factored == false)      
@@ -135,7 +136,7 @@ BandGenLinLapackSolver::solve(void)
 	dgbtrs_("N",&n,&kl,&ku,&nrhs,Aptr,&ldA,iPIV,Xptr,&ldB,&info);
     }
 #endif
-    // check if successfull
+    // check if successful
     if (info != 0) {
       if (info > 0) {
 	opserr << "WARNING BandGenLinLapackSolver::solve() -";

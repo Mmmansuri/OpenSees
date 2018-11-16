@@ -34,6 +34,7 @@
 #include <Domain.h>
 #include "TclModelBuilder.h"
 #include "TclUniaxialMaterialTester.h"
+#include "TclPlaneStressMaterialTester.h"
 #include "TclSectionTester.h"
 
 #include <tcl.h>
@@ -179,6 +180,22 @@ specifyModelBuilder(ClientData clientData, Tcl_Interp *interp, int argc, TCL_Cha
       return TCL_ERROR;
     }
   }
+
+  else if ((strcmp(argv[1],"testPlaneStress") == 0) || 
+	   (strcmp(argv[1],"PlaneStressMaterialTest") == 0)) {
+    int count = 1;
+    if (argc == 3) {
+      if (Tcl_GetInt(interp, argv[2], &count) != TCL_OK) {
+	return TCL_ERROR;
+      }	  
+    }
+    
+    theBuilder = new TclPlaneStressMaterialTester(theDomain, interp, count);
+    if (theBuilder == 0) {
+      opserr << "WARNING ran out of memory in creating TclUniaxialMAterialTester model\n";
+      return TCL_ERROR;
+    }
+  }
   
   
   else if ((strcmp(argv[1],"sectionTest") == 0) || (strcmp(argv[1],"TestSection") == 0) ||
@@ -197,7 +214,7 @@ specifyModelBuilder(ClientData clientData, Tcl_Interp *interp, int argc, TCL_Cha
   }
   
   else {
-    Tcl_SetResult(interp, "WARNING unknown model builder type", TCL_STATIC);
+    opserr <<  "WARNING unknown model builder type\n";
     
     opserr << "WARNING model builder type " << argv[1]
 	   << " not supported\n";

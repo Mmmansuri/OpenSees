@@ -21,7 +21,8 @@
 // $Revision: 1.23 $
 // $Date: 2009-05-16 00:24:58 $
 // $Source: /usr/local/cvs/OpenSees/SRC/renderer/OpenGlDevice.cpp,v $
-                                                                        
+      
+#if !_DLL
                                                                         
 #include <OpenGlDevice.h>
 //#include <OPS_Globals.h>
@@ -946,7 +947,8 @@ OpenGlDevice::saveImageAsPNG(const char *fileName)
   // compression (NOT the default); and remaining compression flags should
   // be left alone
 
-  png_set_compression_level(png_ptr, Z_BEST_COMPRESSION);
+  //png_set_compression_level(png_ptr, Z_BEST_COMPRESSION);
+  png_set_compression_level(png_ptr, X_PROTOCOL_REVISION);  
   //
   // this is default for no filtering; Z_FILTERED is default otherwise:
   // png_set_compression_strategy(png_ptr, Z_DEFAULT_STRATEGY);
@@ -1028,5 +1030,4 @@ OpenGlDevice::saveImageAsPNG(const char *fileName)
   return 0;
 }
 
-
-
+#endif

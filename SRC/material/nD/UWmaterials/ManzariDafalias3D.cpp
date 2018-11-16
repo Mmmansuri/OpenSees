@@ -39,8 +39,9 @@ ManzariDafalias3D::ManzariDafalias3D(int tag, double G0, double nu, double e_ini
 
 // null constructor
 ManzariDafalias3D::ManzariDafalias3D() 
-  : ManzariDafalias()
+  : ManzariDafalias(ND_TAG_ManzariDafalias3D)
 {  
+
 }
 
 // destructor
@@ -77,7 +78,6 @@ int
 ManzariDafalias3D::setTrialStrain(const Vector &strain_from_element) 
 {
 	mEpsilon = -1.0 * strain_from_element; // -1.0 is for geotechnical sign convention
-
 	this->integrate();
 
 	return 0 ;
@@ -98,10 +98,27 @@ ManzariDafalias3D::getStrain()
 	return mEpsilon_M; // -1.0 is for geotechnical sign convention
 } 
 
+// send back the strain
+const Vector& 
+ManzariDafalias3D::getEStrain() 
+{
+	mEpsilon_M = -1.0 * mEpsilonE;
+	return mEpsilon_M; // -1.0 is for geotechnical sign convention
+} 
+
+const Vector& 
+ManzariDafalias3D::getPStrain() 
+{
+	mEpsilon_M = -1.0 * (mEpsilon - mEpsilonE);
+	return mEpsilon_M; // -1.0 is for geotechnical sign convention
+} 
+
+
 // send back the stress 
 const Vector& 
 ManzariDafalias3D::getStress() 
 {
+	// this->integrate();
 	mSigma_M = -1.0 * mSigma;
  	return mSigma_M; // -1.0 is for geotechnical sign convention
 }
@@ -116,12 +133,6 @@ ManzariDafalias3D::getStressToRecord()
 const Matrix& 
 ManzariDafalias3D::getTangent() 
 {
-	if (m_isSmallp)
-	{
-		mCe				= mIIdevMix * mCe;
-		mCep			= mIIdevMix * mCep;
-		mCep_Consistent = mIIdevMix * mCep_Consistent;
-	}
     if (mTangType == 0)
 		return mCe;
 	else if (mTangType == 1)

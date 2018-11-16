@@ -326,36 +326,80 @@ ElasticOrthotropicMaterial::recvSelf (int commitTag, Channel &theChannel,
 void
 ElasticOrthotropicMaterial::Print (OPS_Stream &s, int flag)
 {
-	s << "Elastic Isotropic Material Model" << endln;
-	s << "\tEx:  " << Ex << endln;
-	s << "\tEy:  " << Ey << endln;
-	s << "\tEz:  " << Ez << endln;
-	s << "\tvxy:  " << vxy << endln;
-	s << "\tvyz:  " << vyz << endln;
-	s << "\tvzx:  " << vzx << endln;
-	s << "\tGxy:  " << Gxy << endln;
-	s << "\tGyz:  " << Gyz << endln;
-	s << "\tGzx:  " << Gzx << endln;
-	s << "\trho:  " << rho << endln;
+    if (flag == OPS_PRINT_PRINTMODEL_MATERIAL) {
+        s << "Elastic Isotropic Material Model" << endln;
+        s << "\tEx:  " << Ex << endln;
+        s << "\tEy:  " << Ey << endln;
+        s << "\tEz:  " << Ez << endln;
+        s << "\tvxy:  " << vxy << endln;
+        s << "\tvyz:  " << vyz << endln;
+        s << "\tvzx:  " << vzx << endln;
+        s << "\tGxy:  " << Gxy << endln;
+        s << "\tGyz:  " << Gyz << endln;
+        s << "\tGzx:  " << Gzx << endln;
+        s << "\trho:  " << rho << endln;
+    }
 
-	return;
+    if (flag == OPS_PRINT_PRINTMODEL_JSON) {
+        s << "\t\t\t{";
+        s << "\"name\": \"" << this->getTag() << "\", ";
+        s << "\"type\": \"ElasticOrthotropicMaterial\", ";
+        s << "\"Ex\": " << Ex << ", ";
+        s << "\"Ey\": " << Ey << ", ";
+        s << "\"Ez\": " << Ez << ", ";
+        s << "\"nuxy\": " << vxy << ", ";
+        s << "\"nuyz\": " << vyz << ", ";
+        s << "\"nuzx\": " << vzx << ", ";
+        s << "\"Gxy\": " << Gxy << ", ";
+        s << "\"Gyz\": " << Gyz << ", ";
+        s << "\"Gzx\": " << Gzx << ", ";
+        s << "\"rho\": " << rho << "}";
+    }
 }
 
 int
 ElasticOrthotropicMaterial::setParameter(const char **argv, int argc,
 				      Parameter &param)
 {
-  if (strcmp(argv[0],"E") == 0) {
-    //param.setValue(E);
+  if (strcmp(argv[0],"Ex") == 0) {
+    param.setValue(Ex);
     return param.addObject(1, this);
   }
-  else if (strcmp(argv[0],"nu") == 0 || strcmp(argv[0],"v") == 0) {
-    //param.setValue(v);
+  if (strcmp(argv[0],"Ey") == 0) {
+    param.setValue(Ey);
     return param.addObject(2, this);
   }
-  else if (strcmp(argv[0],"rho") == 0) {
-    param.setValue(rho);
+  if (strcmp(argv[0],"Ez") == 0) {
+    param.setValue(Ez);
     return param.addObject(3, this);
+  }
+  if (strcmp(argv[0],"vxy") == 0 || strcmp(argv[0],"vyx") == 0) {
+    param.setValue(vxy);
+    return param.addObject(4, this);
+  }
+  if (strcmp(argv[0],"vyz") == 0 || strcmp(argv[0],"vzy") == 0) {
+    param.setValue(vyz);
+    return param.addObject(5, this);
+  }
+  if (strcmp(argv[0],"vzx") == 0 || strcmp(argv[0],"vxz") == 0) {
+    param.setValue(vzx);
+    return param.addObject(6, this);
+  }
+  if (strcmp(argv[0],"Gxy") == 0 || strcmp(argv[0],"Gyx") == 0) {
+    param.setValue(Gxy);
+    return param.addObject(7, this);
+  }
+  if (strcmp(argv[0],"Gyz") == 0 || strcmp(argv[0],"Gzy") == 0) {
+    param.setValue(Gyz);
+    return param.addObject(8, this);
+  }
+  if (strcmp(argv[0],"Gzx") == 0 || strcmp(argv[0],"Gxz") == 0) {
+    param.setValue(Gzx);
+    return param.addObject(9, this);
+  }
+  if (strcmp(argv[0],"rho") == 0) {
+    param.setValue(rho);
+    return param.addObject(10, this);
   }
 
   return -1;
@@ -366,13 +410,34 @@ ElasticOrthotropicMaterial::updateParameter(int parameterID, Information &info)
 { 
   switch(parameterID) {
   case 1:
-    //E = info.theDouble;
+    Ex = info.theDouble;
     return 0;
   case 2:
-    //v = info.theDouble;
+    Ey = info.theDouble;
     return 0;
   case 3:
-    //rho = info.theDouble;
+    Ez = info.theDouble;
+    return 0;
+  case 4:
+    vxy = info.theDouble;
+    return 0;
+  case 5:
+    vyz = info.theDouble;
+    return 0;
+  case 6:
+    vzx = info.theDouble;
+    return 0;
+  case 7:
+    Gxy = info.theDouble;
+    return 0;
+  case 8:
+    Gyz = info.theDouble;
+    return 0;
+  case 9:
+    Gzx = info.theDouble;
+    return 0;
+  case 10:
+    rho = info.theDouble;
     return 0;
   default:
     return -1;

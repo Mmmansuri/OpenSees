@@ -140,12 +140,14 @@ UserDefinedBeamIntegration::setParameter(const char **argv, int argc, Parameter 
 
   int Np = wts.Size();
 
-  if (strcmp(argv[0],"pt") == 0 && point <= Np)
+  if (strcmp(argv[0],"pt") == 0 && point <= Np) {
+    param.setValue(pts(point-1));
     return param.addObject(point, this);
-
-  else if (strcmp(argv[0],"wt") == 0 && point <= Np)
+  }
+  else if (strcmp(argv[0],"wt") == 0 && point <= Np) {
+    param.setValue(wts(point-1));
     return param.addObject(10+point, this);
-
+  }
   else
     return -1;
 }
@@ -216,7 +218,23 @@ UserDefinedBeamIntegration::recvSelf(int cTag, Channel &theChannel,
 void
 UserDefinedBeamIntegration::Print(OPS_Stream &s, int flag)
 {
-  s << "UserDefined" << endln;
-  s << " Points: " << pts;
-  s << " Weights: " << wts;
+	if (flag == OPS_PRINT_PRINTMODEL_JSON) {
+		s << "{\"type\": \"UserDefined\", ";
+		s << "\"points\": [";
+		int nIP = pts.Size();
+		for (int i = 0; i < nIP-1; i++)
+			s << pts(i) << ", ";
+		s << pts(nIP - 1) << "], ";
+		s << "\"weights\": [";
+		nIP = wts.Size();
+		for (int i = 0; i < nIP-1; i++)
+			s << wts(i) << ", ";
+		s << wts(nIP - 1) << "]}";
+	}
+
+	else {
+		s << "UserDefined" << endln;
+		s << " Points: " << pts;
+		s << " Weights: " << wts;
+	}
 }

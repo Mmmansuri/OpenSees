@@ -395,6 +395,7 @@ MumpsSOE::addA(const Matrix &m, const ID &id, double fact)
 	}  // for i
       }
     }
+
     return 0;
 }
 
@@ -446,7 +447,7 @@ MumpsSOE::setB(const Vector &v, double fact)
 
     if (v.Size() != size) {
 	opserr << "WARNING BandGenLinSOE::setB() -";
-	opserr << " incomptable sizes " << size << " and " << v.Size() << endln;
+	opserr << " incompatible sizes " << size << " and " << v.Size() << endln;
 	return -1;
     }
     
@@ -463,6 +464,7 @@ MumpsSOE::setB(const Vector &v, double fact)
 	    B[i] = v(i) * fact;
 	}
     }	
+
     return 0;
 }
 
@@ -473,7 +475,7 @@ MumpsSOE::zeroA(void)
     for (int i=0; i<nnz; i++)
 	*Aptr++ = 0;
 
-    factored = false;
+	factored = false;
 }
 	
 void 

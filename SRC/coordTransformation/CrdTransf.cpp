@@ -39,11 +39,23 @@
 
 static MapOfTaggedObjects theCrdTransfObjects;
 
-bool OPS_addCrdTransf(CrdTransf *newComponent) {
+bool 
+OPS_addCrdTransf(CrdTransf *newComponent) {
   return theCrdTransfObjects.addComponent(newComponent);
 }
 
-CrdTransf *OPS_getCrdTransf(int tag) {
+bool OPS_removeCrdTransf(int tag)
+{
+    TaggedObject* obj = theCrdTransfObjects.removeComponent(tag);
+    if (obj != 0) {
+	delete obj;
+	return true;
+    }
+    return false;
+}
+
+CrdTransf *
+OPS_getCrdTransf(int tag) {
 
   TaggedObject *theResult = theCrdTransfObjects.getComponentPtr(tag);
   if (theResult == 0) {
@@ -55,8 +67,29 @@ CrdTransf *OPS_getCrdTransf(int tag) {
   return theSeries;
 }
 
-void OPS_clearAllCrdTransf(void) {
+void 
+OPS_clearAllCrdTransf(void) {
   theCrdTransfObjects.clearAll();
+}
+
+
+void OPS_printCrdTransf(OPS_Stream &s, int flag) {
+  if (flag == OPS_PRINT_PRINTMODEL_JSON) {
+    s << "\t\t\"crdTransformations\": [\n";        
+    MapOfTaggedObjectsIter theObjects = theCrdTransfObjects.getIter();
+    theObjects.reset();
+    TaggedObject *theObject;
+    int count = 0;
+    int numComponents = theCrdTransfObjects.getNumComponents();    
+    while ((theObject = theObjects()) != 0) {
+      CrdTransf *theTransf = (CrdTransf *)theObject;
+      theTransf->Print(s, flag);
+      if (count < numComponents-1)
+	s << ",\n";
+      count++;      
+    }
+    s << "\n\t\t]";
+  }
 }
 
 

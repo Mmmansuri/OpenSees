@@ -1,22 +1,39 @@
-/* ****************************************************************** **
-**    OpenSees - Open System for Earthquake Engineering Simulation    **
-**          Pacific Earthquake Engineering Research Center            **
-**                                                                    **
-**                                                                    **
-** (C) Copyright 1999, The Regents of the University of California    **
-** All Rights Reserved.                                               **
-**                                                                    **
-** Commercial use of this program without express permission of the   **
-** University of California, Berkeley, is strictly prohibited.  See   **
-** file 'COPYRIGHT'  in main directory for information on usage and   **
-** redistribution,  and for a DISCLAIMER OF ALL WARRANTIES.           **
-**                                                                    **
-** Developed by:                                                      **
-**   Frank McKenna (fmckenna@ce.berkeley.edu)                         **
-**   Gregory L. Fenves (fenves@ce.berkeley.edu)                       **
-**   Filip C. Filippou (filippou@ce.berkeley.edu)                     **
-**                                                                    **
-** ****************************************************************** */
+/* *****************************************************************************
+Copyright (c) 2015-2017, The Regents of the University of California (Regents).
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this
+   list of conditions and the following disclaimer.
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
+ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+The views and conclusions contained in the software and documentation are those
+of the authors and should not be interpreted as representing official policies,
+either expressed or implied, of the FreeBSD Project.
+
+REGENTS SPECIFICALLY DISCLAIMS ANY WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
+THE SOFTWARE AND ACCOMPANYING DOCUMENTATION, IF ANY, PROVIDED HEREUNDER IS
+PROVIDED "AS IS". REGENTS HAS NO OBLIGATION TO PROVIDE MAINTENANCE, SUPPORT,
+UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
+
+*************************************************************************** */
+
 
 // Written: Minjie
 
@@ -26,7 +43,6 @@
 #include "OpenSeesCommands.h"
 #include <OPS_Globals.h>
 #include <elementAPI.h>
-#include <StandardStream.h>
 #include <UniaxialMaterial.h>
 #include <NDMaterial.h>
 #include <SectionForceDeformation.h>
@@ -43,6 +59,9 @@
 #include <DamageModel.h>
 #include <FrictionModel.h>
 #include <HystereticBackbone.h>
+#include <StiffnessDegradation.h>
+#include <StrengthDegradation.h>
+#include <UnloadingRule.h>
 #include <YieldSurface_BC.h>
 #include <CyclicModel.h>
 #include <FileStream.h>
@@ -77,14 +96,20 @@
 #include <RegulaFalsiLineSearch.h>
 #include <NewtonLineSearch.h>
 #include <FileDatastore.h>
+#include <Mesh.h>
+
+#ifdef _PARALLEL_INTERPRETERS
+#include <mpi.h>
+#include <MPI_MachineBroker.h>
+#include <ParallelNumberer.h>
+#include <DistributedDisplacementControl.h>
+#include <MumpsParallelSOE.h>
+#include <MumpsParallelSolver.h>
+#endif
 
 
 // active object
 static OpenSeesCommands* cmds = 0;
-
-// define opserr
-StandardStream sserr;
-OPS_Stream *opserrPtr = &sserr;
 
 OpenSeesCommands::OpenSeesCommands(DL_Interpreter* interp)
     :interpreter(interp), theDomain(0), ndf(0), ndm(0),
@@ -93,27 +118,54 @@ OpenSeesCommands::OpenSeesCommands(DL_Interpreter* interp)
      theAlgorithm(0), theStaticAnalysis(0), theTransientAnalysis(0),
      thePFEMAnalysis(0),
      theAnalysisModel(0), theTest(0), numEigen(0), theDatabase(0),
-     theBroker(), theTimer(), theSimulationInfo()
+     theBroker(), theTimer(), theSimulationInfo(), theMachineBroker(0),
+     theChannels(0), numChannels(0), reliability(0)
 {
+#ifdef _PARALLEL_INTERPRETERS
+    theMachineBroker = new MPI_MachineBroker(&theBroker, 0, 0);
+    int rank = theMachineBroker->getPID();
+    int np = theMachineBroker->getNP();
+    if (rank == 0) {
+        theChannels = new Channel *[np-1];
+        numChannels = np-1;
+
+        for (int j=0; j<np-1; j++) {
+            Channel *otherChannel = theMachineBroker->getRemoteProcess();
+            theChannels[j] = otherChannel;
+        }
+    } else {
+        theChannels = new Channel *[1];
+        numChannels = 1;
+        theChannels[0] = theMachineBroker->getMyChannel();
+    }
+#endif
+
     cmds = this;
 
     theDomain = new Domain;
 
-// AddingSensitivity:BEGIN /////////////////////////////////////////////
-#ifdef _RELIABILITY
-    theSensitivityAlgorithm = 0;
-    theSensitivityIntegrator = 0;
-    theReliabilityStaticAnalysis = 0;
-    theReliabilityTransientAnalysis = 0;
-#endif
-// AddingSensitivity:END ///////////////////////////////////////////////
+    reliability = new OpenSeesReliabilityCommands(theDomain);
 }
 
 OpenSeesCommands::~OpenSeesCommands()
 {
-    this->wipe();
+    if (reliability != 0) delete reliability;
     if (theDomain != 0) delete theDomain;
     if (theDatabase != 0) delete theDatabase;
+    cmds = 0;
+
+#ifdef _PARALLEL_INTERPRETERS
+    if (theChannels != 0) {
+        delete [] theChannels;
+    }
+    if (theMachineBroker != 0) {
+        // called in cleanup function, opserr not working
+	std::cerr << "Process "<<theMachineBroker->getPID() << " Terminating\n";
+	theMachineBroker->shutdown();
+	delete theMachineBroker;
+    }
+#endif
+
 }
 
 DL_Interpreter*
@@ -253,11 +305,25 @@ OpenSeesCommands::eigen(int typeSolver, double shift,
 	for (int i=0; i<numEigen; i++) {
 	    data[i] = eigenvalues(i);
 	}
-	OPS_SetDoubleOutput(&numEigen, data);
+	OPS_SetDoubleOutput(&numEigen, data, false);
 	delete [] data;
     }
 
     return result;
+}
+
+int* OPS_GetNumEigen()                                                          
+{                                                                               
+    static int numEigen = 0;                                                    
+    if (cmds == 0) return 0;                                                    
+    numEigen = cmds->getNumEigen();                                             
+    int numdata = 1;                                                            
+    if (OPS_SetIntOutput(&numdata, &numEigen, true) < 0) {
+        opserr << "WARNING failed to set output\n";                             
+        return 0;                                                               
+    }                                                                           
+                                                                                
+    return &numEigen;                                                           
 }
 
 void
@@ -421,7 +487,6 @@ OpenSeesCommands::setAlgorithm(EquiSolnAlgo* algorithm)
     }
 }
 
-
 void
 OpenSeesCommands::setStaticAnalysis()
 {
@@ -479,14 +544,6 @@ OpenSeesCommands::setStaticAnalysis()
     					   *theSOE,
     					   *theStaticIntegrator,
     					   theTest);
-
-// AddingSensitivity:BEGIN ///////////////////////////////
-#ifdef _RELIABILITY
-    // if (theSensitivityAlgorithm != 0 && theSensitivityAlgorithm->shouldComputeAtEachStep()) {
-    // 	theStaticAnalysis->setSensitivityAlgorithm(theSensitivityAlgorithm);
-    // }
-#endif
-// AddingSensitivity:END /////////////////////////////////
 
     if (theEigenSOE != 0) {
 	theStaticAnalysis->setEigenSOE(*theEigenSOE);
@@ -572,15 +629,6 @@ OpenSeesCommands::setPFEMAnalysis()
 	theTransientAnalysis->setEigenSOE(*theEigenSOE);
     }
 
-// AddingSensitivity:BEGIN ///////////////////////////////
-#ifdef _RELIABILITY
-    // if (theSensitivityAlgorithm != 0 && theSensitivityAlgorithm->shouldComputeAtEachStep()) {
-
-    // 	thePFEMAnalysis->setSensitivityAlgorithm(theSensitivityAlgorithm);
-    // }
-#endif
-// AddingSensitivity:END /////////////////////////////////
-
     return 0;
 }
 
@@ -657,15 +705,6 @@ OpenSeesCommands::setVariableAnalysis()
 	theTransientAnalysis->setEigenSOE(*theEigenSOE);
     }
 
-    // AddingSensitivity:BEGIN ///////////////////////////////
-#ifdef _RELIABILITY
-    // if (theSensitivityAlgorithm != 0 && theSensitivityAlgorithm->shouldComputeAtEachStep()) {
-
-    // 	thePFEMAnalysis->setSensitivityAlgorithm(theSensitivityAlgorithm);
-    // }
-#endif
-// AddingSensitivity:END /////////////////////////////////
-
 }
 
 void
@@ -729,160 +768,7 @@ OpenSeesCommands::setTransientAnalysis()
 	theTransientAnalysis->setEigenSOE(*theEigenSOE);
     }
 
-// AddingSensitivity:BEGIN ///////////////////////////////
-#ifdef _RELIABILITY
-    // if (theSensitivityAlgorithm != 0 && theSensitivityAlgorithm->shouldComputeAtEachStep()) {
-    // 	theTransientAnalysis->setSensitivityAlgorithm(theSensitivityAlgorithm);
-    // }
-#endif
-// AddingSensitivity:END /////////////////////////////////
 }
-
-#ifdef _RELIABILITY
-int
-OpenSeesCommands::setReliabilityStaticAnalysis()
-{
-    // delete the old analysis
-    if (theReliabilityStaticAnalysis != 0) {
-	delete theReliabilityStaticAnalysis;
-	theReliabilityStaticAnalysis = 0;
-    }
-    if (theReliabilityTransientAnalysis != 0) {
-	delete theReliabilityTransientAnalysis;
-	theReliabilityTransientAnalysis = 0;
-    }
-
-    // make sure all the components have been built,
-    // otherwise print a warning and use some defaults
-    if (theAnalysisModel == 0) {
-	theAnalysisModel = new AnalysisModel();
-    }
-    if (theTest == 0) {
-	theTest = new CTestNormUnbalance(1.0e-6,25,0);
-    }
-    if (theAlgorithm == 0) {
-	opserr << "WARNING analysis Static - no Algorithm yet specified, \n";
-	opserr << " NewtonRaphson default will be used\n";
-	theAlgorithm = new NewtonRaphson(*theTest);
-    }
-    if (theHandler == 0) {
-	opserr << "WARNING analysis Static - no ConstraintHandler yet specified, \n";
-	opserr << " PlainHandler default will be used\n";
-	theHandler = new PlainHandler();
-    }
-    if (theNumberer == 0) {
-	opserr << "WARNING analysis Static - no Numberer specified, \n";
-	opserr << " RCM default will be used\n";
-	RCM *theRCM = new RCM(false);
-	theNumberer = new DOF_Numberer(*theRCM);
-    }
-    if (theStaticIntegrator == 0) {
-	opserr << "Fatal ! theStaticIntegrator must be defined before defining\n";
-	opserr << "ReliabilityStaticAnalysis by NewStaticSensitivity\n";
-	return -1;
-    }
-    if (theSOE == 0) {
-	opserr << "WARNING analysis Static - no LinearSOE specified, \n";
-	opserr << " ProfileSPDLinSOE default will be used\n";
-	ProfileSPDLinSolver *theSolver;
-	theSolver = new ProfileSPDLinDirectSolver();
-	theSOE = new ProfileSPDLinSOE(*theSolver);
-    }
-
-    theReliabilityStaticAnalysis = new ReliabilityStaticAnalysis(*theDomain,
-								 *theHandler,
-								 *theNumberer,
-								 *theAnalysisModel,
-								 *theAlgorithm,
-								 *theSOE,
-								 *theStaticIntegrator,
-								 theTest);
-
-    // if (theSensitivityAlgorithm != 0 && theSensitivityAlgorithm->shouldComputeAtEachStep()) {
-
-    // 	theStaticAnalysis->setSensitivityAlgorithm(theSensitivityAlgorithm);
-    // } else {
-    // 	opserr << "Faltal SensitivityAlgorithm must be definde before defining \n";
-    // 	opserr << "ReliabilityStaticAnalysis with computeateachstep\n";
-    // 	return -1;
-    // }
-
-    return 0;
-}
-
-int
-OpenSeesCommands::setReliabilityTransientAnalysis()
-{
-    // delete the old analysis
-    if (theReliabilityStaticAnalysis != 0) {
-	delete theReliabilityStaticAnalysis;
-	theReliabilityStaticAnalysis = 0;
-    }
-    if (theReliabilityTransientAnalysis != 0) {
-	delete theReliabilityTransientAnalysis;
-	theReliabilityTransientAnalysis = 0;
-    }
-
-    // make sure all the components have been built,
-    // otherwise print a warning and use some defaults
-    if (theAnalysisModel == 0) {
-	theAnalysisModel = new AnalysisModel();
-    }
-    if (theTest == 0) {
-	theTest = new CTestNormUnbalance(1.0e-6,25,0);
-    }
-    if (theAlgorithm == 0) {
-	opserr << "WARNING analysis Static - no Algorithm yet specified, \n";
-	opserr << " NewtonRaphson default will be used\n";
-	theAlgorithm = new NewtonRaphson(*theTest);
-    }
-    if (theHandler == 0) {
-	opserr << "WARNING analysis Static - no ConstraintHandler yet specified, \n";
-	opserr << " PlainHandler default will be used\n";
-	theHandler = new PlainHandler();
-    }
-    if (theNumberer == 0) {
-	opserr << "WARNING analysis Static - no Numberer specified, \n";
-	opserr << " RCM default will be used\n";
-	RCM *theRCM = new RCM(false);
-	theNumberer = new DOF_Numberer(*theRCM);
-    }
-    if (theTransientIntegrator == 0) {
-	opserr << "Fatal ! theStaticIntegrator must be defined before defining\n";
-	opserr << "ReliabilityStaticAnalysis by NewStaticSensitivity\n";
-	return -1;
-    }
-    if (theSOE == 0) {
-	opserr << "WARNING analysis Static - no LinearSOE specified, \n";
-	opserr << " ProfileSPDLinSOE default will be used\n";
-	ProfileSPDLinSolver *theSolver;
-	theSolver = new ProfileSPDLinDirectSolver();
-	theSOE = new ProfileSPDLinSOE(*theSolver);
-    }
-
-    theReliabilityTransientAnalysis = new ReliabilityDirectIntegrationAnalysis(*theDomain,
-									       *theHandler,
-									       *theNumberer,
-									       *theAnalysisModel,
-									       *theAlgorithm,
-									       *theSOE,
-									       *theTransientIntegrator,
-									       theTest);
-
-
-    // if (theSensitivityAlgorithm != 0 && theSensitivityAlgorithm->shouldComputeAtEachStep()) {
-
-    // 	theStaticAnalysis->setSensitivityAlgorithm(theSensitivityAlgorithm);
-    // } else {
-    // 	opserr << "Faltal SensitivityAlgorithm must be definde before defining \n";
-    // 	opserr << "ReliabilityTransientAnalysis with computeateachstep\n";
-    // 	return -1;
-    // }
-
-    return 0;
-}
-
-#endif
 
 void
 OpenSeesCommands::wipeAnalysis()
@@ -896,11 +782,6 @@ OpenSeesCommands::wipeAnalysis()
 	if (theTransientIntegrator != 0) delete theTransientIntegrator;
 	if (theAlgorithm != 0) delete theAlgorithm;
 	if (theTest != 0) delete theTest;
-#ifdef _RELIABILITY
-	if (theSensitivityAlgorithm != 0) delete theSensitivityAlgorithm;
-	if (theReliabilityStaticAnalysis != 0) delete theReliabilityStaticAnalysis;
-	if (theReliabilityTransientAnalysis != 0) delete theReliabilityTransientAnalysis;
-#endif
     }
 
     if (theStaticAnalysis != 0) {
@@ -925,15 +806,6 @@ OpenSeesCommands::wipeAnalysis()
     thePFEMAnalysis = 0;
     theTest = 0;
 
-// AddingSensitivity:BEGIN /////////////////////////////////////////////////
-#ifdef _RELIABILITY
-    theSensitivityAlgorithm = 0;
-    theSensitivityIntegrator = 0;
-    theReliabilityStaticAnalysis = 0;
-    theReliabilityTransientAnalysis = 0;
-#endif
-// AddingSensitivity:END /////////////////////////////////////////////////
-
 }
 
 void
@@ -952,6 +824,9 @@ OpenSeesCommands::wipe()
 	theDomain->clearAll();
     }
 
+    // wipe all meshes
+    OPS_clearAllMesh();
+
     // time set to zero
     ops_Dt = 0.0;
 
@@ -967,7 +842,7 @@ OpenSeesCommands::wipe()
     OPS_clearAllTimeSeries();
 
     // wipe GeomTransf
-    OPS_ClearAllCrdTransf();
+    OPS_clearAllCrdTransf();
 
     // wipe BeamIntegration
     OPS_clearAllBeamIntegrationRule();
@@ -983,6 +858,9 @@ OpenSeesCommands::wipe()
 
     // wipe HystereticBackbone
     OPS_clearAllHystereticBackbone();
+    OPS_clearAllStiffnessDegradation();
+    OPS_clearAllStrengthDegradation();
+    OPS_clearAllUnloadingRule();
 
     // wipe YieldSurface_BC
     OPS_clearAllYieldSurface_BC();
@@ -990,6 +868,12 @@ OpenSeesCommands::wipe()
     // wipe CyclicModel
     OPS_clearAllCyclicModel();
 
+    if (reliability != 0) {
+      ReliabilityDomain* theReliabilityDomain = reliability->getDomain();
+      if (theReliabilityDomain != 0) {
+	//theReliabilityDomain->clearAll();
+      }
+    }
 }
 
 void
@@ -1007,67 +891,82 @@ OpenSeesCommands::setFileDatabase(const char* filename)
 /////////////////////////////
 int OPS_GetNumRemainingInputArgs()
 {
+    if (cmds == 0) return 0;
     DL_Interpreter* interp = cmds->getInterpreter();
     return interp->getNumRemainingInputArgs();
 }
 
 int OPS_GetIntInput(int *numData, int*data)
 {
+    if (cmds == 0) return 0;
     DL_Interpreter* interp = cmds->getInterpreter();
     if (numData == 0 || data == 0) return -1;
     return interp->getInt(data, *numData);
 }
 
-int OPS_SetIntOutput(int *numData, int*data)
+int OPS_SetIntOutput(int *numData, int*data, bool scalar)
 {
+    if (cmds == 0) return 0;
     DL_Interpreter* interp = cmds->getInterpreter();
-    if (numData == 0 || data == 0) return -1;
-    return interp->setInt(data, *numData);
+    return interp->setInt(data, *numData, scalar);
 }
 
 int OPS_GetDoubleInput(int *numData, double *data)
 {
+    if (cmds == 0) return 0;
     DL_Interpreter* interp = cmds->getInterpreter();
     if (numData == 0 || data == 0) return -1;
     return interp->getDouble(data, *numData);
 }
 
-int OPS_SetDoubleOutput(int *numData, double *data)
+int OPS_SetDoubleOutput(int *numData, double *data, bool scalar)
 {
+    if (cmds == 0) return 0;
     DL_Interpreter* interp = cmds->getInterpreter();
-    if (numData == 0 || data == 0) return -1;
-    return interp->setDouble(data, *numData);
+    return interp->setDouble(data, *numData, scalar);
 }
 
 const char * OPS_GetString(void)
 {
+    if (cmds == 0) return "Invalid String Input!";
     DL_Interpreter* interp = cmds->getInterpreter();
     const char* res = interp->getString();
     if (res == 0) {
-	return "Invalid String Input!\n";
+	return "Invalid String Input!";
     }
     return res;
 }
 
 int OPS_SetString(const char* str)
 {
+    if (cmds == 0) return 0;
     DL_Interpreter* interp = cmds->getInterpreter();
     return interp->setString(str);
 }
 
 Domain* OPS_GetDomain(void)
 {
+    if (cmds == 0) return 0;
     return cmds->getDomain();
 }
 
 int OPS_GetNDF()
 {
+    if (cmds == 0) return 0;
     return cmds->getNDF();
 }
 
 int OPS_GetNDM()
 {
+    if (cmds == 0) return 0;
     return cmds->getNDM();
+}
+
+int OPS_Error(char *errorMessage, int length)
+{
+    opserr << errorMessage;
+    opserr << endln;
+    return 0;
 }
 
 int OPS_ResetCurrentInputArg(int cArg)
@@ -1076,6 +975,7 @@ int OPS_ResetCurrentInputArg(int cArg)
 	opserr << "WARNING can't reset to argv[0]\n";
 	return -1;
     }
+    if (cmds == 0) return 0;
     DL_Interpreter* interp = cmds->getInterpreter();
     interp->resetInput(cArg);
     return 0;
@@ -1089,7 +989,9 @@ UniaxialMaterial *OPS_GetUniaxialMaterial(int matTag)
 int OPS_wipe()
 {
     // wipe
-    cmds->wipe();
+    if (cmds != 0) {
+	cmds->wipe();
+    }
 
     return 0;
 }
@@ -1097,7 +999,9 @@ int OPS_wipe()
 int OPS_wipeAnalysis()
 {
     // wipe analysis
-    cmds->wipeAnalysis();
+    if (cmds != 0) {
+	cmds->wipeAnalysis();
+    }
 
     return 0;
 }
@@ -1160,12 +1064,13 @@ int OPS_model()
     }
 
     // set ndm and ndf
-    cmds->setNDF(ndf);
-    cmds->setNDM(ndm);
+    if (cmds != 0) {
+	cmds->setNDF(ndf);
+	cmds->setNDM(ndm);
+    }
 
     return 0;
 }
-
 
 int OPS_System()
 {
@@ -1210,45 +1115,22 @@ int OPS_System()
 	// PFEM SOE & SOLVER
 
 	if(OPS_GetNumRemainingInputArgs() < 1) {
-	    theSOE = (LinearSOE*)OPS_PFEMSolver();
+	    theSOE = (LinearSOE*)OPS_PFEMSolver_Umfpack();
 	} else {
 
 	    const char* type = OPS_GetString();
 
-	    if(strcmp(type, "-quasi") == 0) {
+	    if(strcmp(type, "-compressible") == 0) {
 
 		theSOE = (LinearSOE*)OPS_PFEMCompressibleSolver();
 
-	    } else if(strcmp(type, "-umfpack") == 0) {
+	    } else if(strcmp(type, "-mumps") == 0) {
+		
+	    	theSOE = (LinearSOE*)OPS_PFEMSolver_Mumps();
 
-		theSOE = (LinearSOE*)OPS_PFEMSolver_Umfpack();
-
-	    } else if (strcmp(type,"-mumps") ==0) {
-// #ifdef _PARALLEL_INTERPRETERS
-// 	    int relax = 20;
-// 	    if (argc > 3) {
-// 		if (Tcl_GetInt(interp, argv[3], &relax) != TCL_OK) {
-// 		    opserr<<"WARNING: failed to read relax\n";
-// 		    return TCL_ERROR;
-// 		}
-// 	    }
-// 	    PFEMSolver_Mumps* theSolver = new PFEMSolver_Mumps(relax,0,0,0);
-// 	    theSOE = new PFEMLinSOE(*theSolver);
-// #endif
-	    } else if (strcmp(type,"-quasi-mumps")==0) {
-// #ifdef _PARALLEL_INTERPRETERS
-// 	    int relax = 20;
-// 	    if (argc > 3) {
-// 		if (Tcl_GetInt(interp, argv[3], &relax) != TCL_OK) {
-// 		    opserr<<"WARNING: failed to read relax\n";
-// 		    return TCL_ERROR;
-// 		}
-// 	    }
-// 	    PFEMCompressibleSolver_Mumps* theSolver = new PFEMCompressibleSolver_Mumps(relax,0,0);
-// 	    theSOE = new PFEMCompressibleLinSOE(*theSolver);
-// #endif
-
-	    }
+	    } else if (strcmp(type, "-umfpack") == 0) {
+	    theSOE = (LinearSOE*)OPS_PFEMSolver_Umfpack();
+        }
 	}
 
 
@@ -1275,7 +1157,7 @@ int OPS_System()
     } else if (strcmp(type,"Petsc") == 0) {
 
     } else if (strcmp(type,"Mumps") == 0) {
-
+        theSOE = (LinearSOE*)OPS_MumpsSolver();
 
     } else {
     	opserr<<"WARNING unknown system type "<<type<<"\n";
@@ -1283,7 +1165,9 @@ int OPS_System()
     }
 
     // set soe
-    cmds->setSOE(theSOE);
+    if (cmds != 0) {
+	cmds->setSOE(theSOE);
+    }
 
     return 0;
 }
@@ -1310,8 +1194,15 @@ int OPS_Numberer()
 
     } else if (strcmp(type,"AMD") == 0) {
 
-    	AMD *theAMD = new AMD();
-    	theNumberer = new DOF_Numberer(*theAMD);
+        AMD *theAMD = new AMD();
+        theNumberer = new DOF_Numberer(*theAMD);
+    } else if (strcmp(type, "ParallelPlain") == 0) {
+
+        theNumberer = (DOF_Numberer*)OPS_ParallelNumberer();
+
+    } else if (strcmp(type, "ParallelRCM") == 0) {
+
+        theNumberer = (DOF_Numberer*)OPS_ParallelRCM();
 
     } else {
     	opserr<<"WARNING unknown numberer type "<<type<<"\n";
@@ -1319,7 +1210,9 @@ int OPS_Numberer()
     }
 
     // set numberer
-    cmds->setNumberer(theNumberer);
+    if (cmds != 0) {
+	cmds->setNumberer(theNumberer);
+    }
 
     return 0;
 }
@@ -1356,7 +1249,9 @@ int OPS_ConstraintHandler()
     }
 
     // set handler
-    cmds->setHandler(theHandler);
+    if (cmds != 0) {
+	cmds->setHandler(theHandler);
+    }
 
     return 0;
 }
@@ -1413,7 +1308,9 @@ int OPS_CTest()
     }
 
     // set test
-    cmds->setCTest(theTest);
+    if (cmds != 0) {
+	cmds->setCTest(theTest);
+    }
 
     return 0;
 }
@@ -1437,6 +1334,10 @@ int OPS_Integrator()
     } else if (strcmp(type,"DisplacementControl") == 0) {
 
 	si = (StaticIntegrator*)OPS_DisplacementControlIntegrator();
+
+    } else if (strcmp(type,"ParallelDisplacementControl") == 0) {
+
+        si = (StaticIntegrator*)OPS_ParallelDisplacementControl();
 
     } else if (strcmp(type,"ArcLength") == 0) {
 	si = (StaticIntegrator*)OPS_ArcLength();
@@ -1570,15 +1471,22 @@ int OPS_Integrator()
     } else if (strcmp(type,"CentralDifferenceNoDamping") == 0) {
 	ti = (TransientIntegrator*)OPS_CentralDifferenceNoDamping();
 
+	} else if (strcmp(type, "ExplicitDifference") == 0) {
+    ti = (TransientIntegrator*)OPS_Explicitdifference();
+
     } else {
 	opserr<<"WARNING unknown integrator type "<<type<<"\n";
     }
 
     // set integrator
     if (si != 0) {
-	cmds->setStaticIntegrator(si);
+	if (cmds != 0) {
+	    cmds->setStaticIntegrator(si);
+	}
     } else if (ti != 0) {
-	cmds->setTransientIntegrator(ti);
+	if (cmds != 0) {
+	    cmds->setTransientIntegrator(ti);
+	}
     }
 
     return 0;
@@ -1635,7 +1543,9 @@ int OPS_Algorithm()
 
     // set algorithm
     if (theAlgo != 0) {
-	cmds->setAlgorithm(theAlgo);
+	if (cmds != 0) {
+	    cmds->setAlgorithm(theAlgo);
+	}
     }
 
     return 0;
@@ -1652,29 +1562,25 @@ int OPS_Analysis()
 
     // create analysis
     if (strcmp(type, "Static") == 0) {
-	cmds->setStaticAnalysis();
+	if (cmds != 0) {
+	    cmds->setStaticAnalysis();
+	}
     } else if (strcmp(type, "Transient") == 0) {
-	cmds->setTransientAnalysis();
+	if (cmds != 0) {
+	    cmds->setTransientAnalysis();
+	}
     } else if (strcmp(type, "PFEM") == 0) {
-	if (cmds->setPFEMAnalysis() < 0) {
-	    return -1;
+	if (cmds != 0) {
+	    if (cmds->setPFEMAnalysis() < 0) {
+		return -1;
+	    }
 	}
     } else if (strcmp(type, "VariableTimeStepTransient") == 0 ||
 	       (strcmp(type,"TransientWithVariableTimeStep") == 0) ||
 	       (strcmp(type,"VariableTransient") == 0)) {
-	cmds->setVariableAnalysis();
-
-#ifdef _RELIABILITY
-    } else if (strcmp(type, "ReliabilityStatic") == 0) {
-	if (cmds->setReliabilityStaticAnalysis() < 0) {
-	    return -1;
+	if (cmds != 0) {
+	    cmds->setVariableAnalysis();
 	}
-
-    } else if (strcmp(type,"ReliabilityTransient") == 0) {
-	if (cmds->setReliabilityTransientAnalysis() < 0) {
-	    return -1;
-	}
-#endif
 
     } else {
 	opserr<<"WARNING unknown analysis type "<<type<<"\n";
@@ -1685,6 +1591,7 @@ int OPS_Analysis()
 
 int OPS_analyze()
 {
+    if (cmds == 0) return 0;
 
     int result = 0;
     StaticAnalysis* theStaticAnalysis = cmds->getStaticAnalysis();
@@ -1729,7 +1636,7 @@ int OPS_analyze()
     }
 
     int numdata = 1;
-    if (OPS_SetIntOutput(&numdata, &result) < 0) {
+    if (OPS_SetIntOutput(&numdata, &result, true) < 0) {
 	opserr<<"WARNING failed to set output\n";
 	return -1;
     }
@@ -1821,6 +1728,7 @@ int OPS_eigenAnalysis()
 
 int OPS_resetModel()
 {
+    if (cmds == 0) return 0;
     Domain* theDomain = OPS_GetDomain();
     if (theDomain != 0) {
 	theDomain->revertToStart();
@@ -1829,11 +1737,13 @@ int OPS_resetModel()
     if (theTransientIntegrator != 0) {
 	theTransientIntegrator->revertToStart();
     }
+
     return 0;
 }
 
 int OPS_initializeAnalysis()
 {
+    if (cmds == 0) return 0;
     DirectIntegrationAnalysis* theTransientAnalysis =
 	cmds->getTransientAnalysis();
 
@@ -1856,10 +1766,12 @@ int OPS_initializeAnalysis()
 
 int OPS_printA()
 {
+    if (cmds == 0) return 0;
     FileStream outputFile;
     OPS_Stream *output = &opserr;
 
-    if (OPS_GetNumRemainingInputArgs() > 1) {
+    bool ret = false;
+    if (OPS_GetNumRemainingInputArgs() > 0) {
 	const char* flag = OPS_GetString();
 
 	if ((strcmp(flag,"file") == 0) || (strcmp(flag,"-file") == 0)) {
@@ -1870,6 +1782,8 @@ int OPS_printA()
 		return -1;
 	    }
 	    output = &outputFile;
+	} else if((strcmp(flag,"ret") == 0) || (strcmp(flag,"-ret") == 0)) {
+	    ret = true;
 	}
     }
 
@@ -1884,10 +1798,35 @@ int OPS_printA()
 	    theTransientIntegrator->formTangent(0);
 	}
 
-	const Matrix *A = theSOE->getA();
+	Matrix *A = const_cast<Matrix*>(theSOE->getA());
 	if (A != 0) {
-	    *output << *A;
+	    if (ret) {
+		int size = A->noRows() * A->noCols();
+		if (size >0) {
+		    double& ptr = (*A)(0,0);
+		    if (OPS_SetDoubleOutput(&size, &ptr, false) < 0) {
+			opserr << "WARNING: printA - failed to set output\n";
+			return -1;
+		    }
+		}
+	    } else {
+		*output << *A;
+	    }
+	} else {
+        int size = 0;
+        double *ptr = 0;
+        if (OPS_SetDoubleOutput(&size, ptr, false) < 0) {
+            opserr << "WARNING: printA - failed to set output\n";
+            return -1;
+        }
 	}
+    } else {
+        int size = 0;
+        double *ptr = 0;
+        if (OPS_SetDoubleOutput(&size, ptr, false) < 0) {
+            opserr << "WARNING: printA - failed to set output\n";
+            return -1;
+        }
     }
 
     // close the output file
@@ -1898,6 +1837,7 @@ int OPS_printA()
 
 int OPS_printB()
 {
+    if (cmds == 0) return 0;
     FileStream outputFile;
     OPS_Stream *output = &opserr;
 
@@ -1905,7 +1845,8 @@ int OPS_printB()
     StaticIntegrator* theStaticIntegrator = cmds->getStaticIntegrator();
     TransientIntegrator* theTransientIntegrator = cmds->getTransientIntegrator();
 
-    if (OPS_GetNumRemainingInputArgs() > 1) {
+    bool ret = false;
+    if (OPS_GetNumRemainingInputArgs() > 0) {
 	const char* flag = OPS_GetString();
 
 	if ((strcmp(flag,"file") == 0) || (strcmp(flag,"-file") == 0)) {
@@ -1916,6 +1857,8 @@ int OPS_printB()
 		return -1;
 	    }
 	    output = &outputFile;
+	} else if((strcmp(flag,"ret") == 0) || (strcmp(flag,"-ret") == 0)) {
+	    ret = true;
 	}
     }
     if (theSOE != 0) {
@@ -1925,8 +1868,33 @@ int OPS_printB()
 	    theTransientIntegrator->formTangent(0);
 	}
 
-	const Vector &b = theSOE->getB();
-	*output << b;
+	Vector &b = const_cast<Vector&>(theSOE->getB());
+	if (ret) {
+	    int size = b.Size();
+	    if (size > 0) {
+		double &ptr = b(0);
+		if (OPS_SetDoubleOutput(&size, &ptr, false) < 0) {
+		    opserr << "WARNING: printb - failed to set output\n";
+		    return -1;
+		}
+	    } else {
+            size = 0;
+            double *ptr2 = 0;
+            if (OPS_SetDoubleOutput(&size, ptr2, false) < 0) {
+                opserr << "WARNING: printA - failed to set output\n";
+                return -1;
+            }
+	    }
+	} else {
+	    *output << b;
+	}
+    } else {
+        int size = 0;
+        double *ptr = 0;
+        if (OPS_SetDoubleOutput(&size, ptr, false) < 0) {
+            opserr << "WARNING: printA - failed to set output\n";
+            return -1;
+        }
     }
 
     // close the output file
@@ -1935,8 +1903,101 @@ int OPS_printB()
     return 0;
 }
 
+int printNode(OPS_Stream& output);
+int printElement(OPS_Stream& output);
+int printAlgorithm(OPS_Stream& output);
+int printIntegrator(OPS_Stream& output);
+
+int OPS_printModel()
+{
+    int res = 0;
+
+    int flag = OPS_PRINT_CURRENTSTATE;
+
+    FileStream outputFile;
+    OPS_Stream *output = &opserr;
+    bool done = false;
+
+    Domain* theDomain = OPS_GetDomain();
+    if (theDomain == 0) return -1;
+
+    // if just 'print' then print out the entire domain
+    if (OPS_GetNumRemainingInputArgs() < 1) {
+        opserr << *theDomain;
+        return 0;
+    }
+
+    while (done == false && OPS_GetNumRemainingInputArgs() > 0) {
+
+        const char* arg = OPS_GetString();
+
+        // if 'print ele i j k..' print out some elements
+        if ((strcmp(arg, "-ele") == 0) || (strcmp(arg, "ele") == 0)) {
+            res = printElement(*output);
+            done = true;
+        }
+        // if 'print node i j k ..' print out some nodes
+        else if ((strcmp(arg, "-node") == 0) || (strcmp(arg, "node") == 0)) {
+            res = printNode(*output);
+            done = true;
+        }
+
+        // if 'print integrator flag' print out the integrator
+        else if ((strcmp(arg, "integrator") == 0) || (strcmp(arg, "-integrator") == 0)) {
+            res = printIntegrator(*output);
+            done = true;
+        }
+
+        // if 'print algorithm flag' print out the algorithm
+        else if ((strcmp(arg, "algorithm") == 0) || (strcmp(arg, "-algorithm") == 0)) {
+            res = printAlgorithm(*output);
+            done = true;
+        }
+
+        // if 'print -JSON' print using JSON format
+        else if ((strcmp(arg, "JSON") == 0) || (strcmp(arg, "-JSON") == 0)) {
+            flag = OPS_PRINT_PRINTMODEL_JSON;
+        }
+
+        else {
+
+            if ((strcmp(arg, "file") == 0) || (strcmp(arg, "-file") == 0)) {}
+
+            if (OPS_GetNumRemainingInputArgs() < 1) break;
+            const char* filename = OPS_GetString();
+
+            openMode mode = APPEND;
+            if (flag == OPS_PRINT_PRINTMODEL_JSON)
+                mode = OVERWRITE;
+            if (outputFile.setFile(filename, mode) != 0) {
+                opserr << "print <filename> .. - failed to open file: " << filename << endln;
+                return -1;
+            }
+
+            SimulationInformation* simulationInfo = cmds->getSimulationInformation();
+            if (simulationInfo == 0) return -1;
+
+            // if just 'print <filename>' then print out the entire domain to eof
+            if (OPS_GetNumRemainingInputArgs() < 1) {
+                if (flag == OPS_PRINT_PRINTMODEL_JSON)
+                    simulationInfo->Print(outputFile, flag);
+                theDomain->Print(outputFile, flag);
+                return 0;
+            }
+
+            output = &outputFile;
+
+        }
+    }
+
+    // close the output file
+    outputFile.close();
+    return res;
+}
+
 void* OPS_KrylovNewton()
 {
+    if (cmds == 0) return 0;
     int incrementTangent = CURRENT_TANGENT;
     int iterateTangent = CURRENT_TANGENT;
     int maxDim = 3;
@@ -1992,6 +2053,7 @@ void* OPS_KrylovNewton()
 
 void* OPS_RaphsonNewton()
 {
+    if (cmds == 0) return 0;
     int incrementTangent = CURRENT_TANGENT;
     int iterateTangent = CURRENT_TANGENT;
 
@@ -2039,6 +2101,7 @@ void* OPS_RaphsonNewton()
 
 void* OPS_MillerNewton()
 {
+    if (cmds == 0) return 0;
     int incrementTangent = CURRENT_TANGENT;
     int iterateTangent = CURRENT_TANGENT;
     int maxDim = 3;
@@ -2092,6 +2155,7 @@ void* OPS_MillerNewton()
 
 void* OPS_SecantNewton()
 {
+    if (cmds == 0) return 0;
     int incrementTangent = CURRENT_TANGENT;
     int iterateTangent = CURRENT_TANGENT;
     int maxDim = 3;
@@ -2147,6 +2211,7 @@ void* OPS_SecantNewton()
 
 void* OPS_PeriodicNewton()
 {
+    if (cmds == 0) return 0;
     int incrementTangent = CURRENT_TANGENT;
     int iterateTangent = CURRENT_TANGENT;
     int maxDim = 3;
@@ -2202,6 +2267,7 @@ void* OPS_PeriodicNewton()
 
 void* OPS_NewtonLineSearch()
 {
+    if (cmds == 0) return 0;
     ConvergenceTest* theTest = cmds->getCTest();
 
     if (theTest == 0) {
@@ -2289,6 +2355,7 @@ void* OPS_NewtonLineSearch()
 
 int OPS_getCTestNorms()
 {
+    if (cmds == 0) return 0;
     ConvergenceTest* theTest = cmds->getCTest();
 
     if (theTest != 0) {
@@ -2300,7 +2367,7 @@ int OPS_getCTestNorms()
 	    data[i] = norms(i);
 	}
 
-	if (OPS_SetDoubleOutput(&numdata, data) < 0) {
+	if (OPS_SetDoubleOutput(&numdata, data, false) < 0) {
 	    opserr << "WARNING failed to set test norms\n";
 	    delete [] data;
 	    return -1;
@@ -2315,12 +2382,13 @@ int OPS_getCTestNorms()
 
 int OPS_getCTestIter()
 {
+    if (cmds == 0) return 0;
     ConvergenceTest* theTest = cmds->getCTest();
 
     if (theTest != 0) {
 	int res = theTest->getNumTests();
 	int numdata = 1;
-	if (OPS_SetIntOutput(&numdata, &res) < 0) {
+	if (OPS_SetIntOutput(&numdata, &res, true) < 0) {
 	    opserr << "WARNING failed to set test iter\n";
 	    return -1;
 	}
@@ -2334,6 +2402,7 @@ int OPS_getCTestIter()
 
 int OPS_Database()
 {
+    if (cmds == 0) return 0;
     // make sure at least one other argument to contain integrator
     if (OPS_GetNumRemainingInputArgs() < 1) {
 	opserr << "WARNING need to specify a Database type; valid type File, MySQL, BerkeleyDB \n";
@@ -2366,6 +2435,7 @@ int OPS_Database()
 
 int OPS_save()
 {
+    if (cmds == 0) return 0;
     // make sure at least one other argument to contain type of system
     if (OPS_GetNumRemainingInputArgs() < 1) {
 	opserr << "WARNING save no commit tag - want save commitTag?";
@@ -2396,6 +2466,7 @@ int OPS_save()
 
 int OPS_restore()
 {
+    if (cmds == 0) return 0;
     // make sure at least one other argument to contain type of system
     if (OPS_GetNumRemainingInputArgs() < 1) {
 	opserr << "WARNING restore no commit tag - want restore commitTag?";
@@ -2426,6 +2497,7 @@ int OPS_restore()
 
 int OPS_startTimer()
 {
+    if (cmds == 0) return 0;
     Timer* timer = cmds->getTimer();
     if (timer == 0) return -1;
     timer->start();
@@ -2434,6 +2506,7 @@ int OPS_startTimer()
 
 int OPS_stopTimer()
 {
+    if (cmds == 0) return 0;
     Timer* theTimer = cmds->getTimer();
     if (theTimer == 0) return -1;
     theTimer->pause();
@@ -2443,6 +2516,7 @@ int OPS_stopTimer()
 
 int OPS_modalDamping()
 {
+    if (cmds == 0) return 0;
     if (OPS_GetNumRemainingInputArgs() < 1) {
 	opserr << "WARNING modalDamping ?factor - not enough arguments to command\n";
 	return -1;
@@ -2452,19 +2526,37 @@ int OPS_modalDamping()
     EigenSOE* theEigenSOE = cmds->getEigenSOE();
 
     if (numEigen == 0 || theEigenSOE == 0) {
-	opserr << "WARINING - modalDmping - eigen command needs to be called first - NO MODAL DAMPING APPLIED\n ";
+	opserr << "WARINING modalDamping - eigen command needs to be called first - NO MODAL DAMPING APPLIED\n ";
 	return -1;
+    }
+
+    int numModes = OPS_GetNumRemainingInputArgs();
+    if (numModes != 1 && numModes != numEigen) {
+      opserr << "WARNING modalDamping - same #damping factors as modes must be specified\n";
+      opserr << "                     - same damping ratio will be applied to all modes\n";
     }
 
     double factor;
-    int numdata = 1;
-    if (OPS_GetDoubleInput(&numdata, &factor) < 0) {
-	opserr << "WARNING rayleigh alphaM? betaK? betaK0? betaKc? - could not read betaK? \n";
-	return -1;
-    }
-
     Vector modalDampingValues(numEigen);
-    for (int i=0; i<numEigen; i++) {
+    int numdata = 1;
+
+    //
+    // read in values and set factors
+    //
+    if (numModes == numEigen) {
+      for (int i = 0; i < numEigen; i++) {
+	if (OPS_GetDoubleInput(&numdata, &factor) < 0) {
+	  opserr << "WARNING modalDamping - could not read factor for mode " << i+1 << endln;
+	  return -1;
+	}
+	modalDampingValues(i) = factor;
+      }
+    } else {
+      if (OPS_GetDoubleInput(&numdata, &factor) < 0) {
+	opserr << "WARNING modalDamping - could not read factor for all modes \n";
+	return -1;
+      }
+      for (int i = 0; i < numEigen; i++)
 	modalDampingValues(i) = factor;
     }
 
@@ -2478,6 +2570,7 @@ int OPS_modalDamping()
 
 int OPS_modalDampingQ()
 {
+    if (cmds == 0) return 0;
     if (OPS_GetNumRemainingInputArgs() < 1) {
 	opserr << "WARNING modalDamping ?factor - not enough arguments to command\n";
 	return -1;
@@ -2487,14 +2580,14 @@ int OPS_modalDampingQ()
     EigenSOE* theEigenSOE = cmds->getEigenSOE();
 
     if (numEigen == 0 || theEigenSOE == 0) {
-	opserr << "WARINING - modalDmping - eigen command needs to be called first - NO MODAL DAMPING APPLIED\n ";
+	opserr << "WARINING modalDamping - eigen command needs to be called first - NO MODAL DAMPING APPLIED\n ";
 	return -1;
     }
 
     double factor;
     int numdata = 1;
     if (OPS_GetDoubleInput(&numdata, &factor) < 0) {
-	opserr << "WARNING rayleigh alphaM? betaK? betaK0? betaKc? - could not read betaK? \n";
+	opserr << "WARNING modalDamping - could not read factor for all modes \n";
 	return -1;
     }
 
@@ -2513,6 +2606,7 @@ int OPS_modalDampingQ()
 
 int OPS_neesMetaData()
 {
+    if (cmds == 0) return 0;
     if (OPS_GetNumRemainingInputArgs() < 1) {
 	opserr << "WARNING missing args \n";
 	return -1;
@@ -2520,7 +2614,7 @@ int OPS_neesMetaData()
 
     SimulationInformation* simulationInfo = cmds->getSimulationInformation();
     if (simulationInfo == 0) return -1;
-    
+
     while (OPS_GetNumRemainingInputArgs() > 0) {
 	const char* flag = OPS_GetString();
 
@@ -2572,58 +2666,213 @@ int OPS_neesMetaData()
     return 0;
 }
 
-int OPS_neesUpload()
+int OPS_defaultUnits()
 {
-    if (OPS_GetNumRemainingInputArgs() < 2) {
-	opserr << "WARNING neesUpload -user isername? -pass passwd? -proj projID? -exp expID? -title title? -description description\n";
-	return -1;
+    if (OPS_GetNumRemainingInputArgs() < 8) {
+        opserr << "WARNING defaultUnits - missing a unit type want: defaultUnits -Force type? -Length type? -Time type? -Temperature type?\n";
+        return -1;
     }
-    int projID =0;
-    int expID =0;
-    const char *userName =0;
-    const char *userPasswd =0;
+
+    const char *force = 0;
+    const char *length = 0;
+    const char *time = 0;
+    const char *temperature = 0;
+
+    while (OPS_GetNumRemainingInputArgs() > 0) {
+        const char* unitType = OPS_GetString();
+
+        if ((strcmp(unitType, "-force") == 0) || (strcmp(unitType, "-Force") == 0)
+            || (strcmp(unitType, "-FORCE") == 0)) {
+            force = OPS_GetString();
+        }
+        else if ((strcmp(unitType, "-length") == 0) || (strcmp(unitType, "-Length") == 0)
+            || (strcmp(unitType, "-LENGTH") == 0)) {
+            length = OPS_GetString();
+        }
+        else if ((strcmp(unitType, "-time") == 0) || (strcmp(unitType, "-Time") == 0)
+            || (strcmp(unitType, "-TIME") == 0)) {
+            time = OPS_GetString();
+        }
+        else if ((strcmp(unitType, "-temperature") == 0) || (strcmp(unitType, "-Temperature") == 0)
+            || (strcmp(unitType, "-TEMPERATURE") == 0) || (strcmp(unitType, "-temp") == 0)
+            || (strcmp(unitType, "-Temp") == 0) || (strcmp(unitType, "-TEMP") == 0)) {
+            temperature = OPS_GetString();
+        }
+        else {
+            opserr << "WARNING defaultUnits - unrecognized unit: " << unitType << " want: defaultUnits -Force type? -Length type? -Time type? -Temperature type?\n";
+            return -1;
+        }
+    }
+
+    if (length == 0 || force == 0 || time == 0 || temperature == 0) {
+        opserr << "defaultUnits - missing a unit type want: defaultUnits -Force type? -Length type? -Time type? -Temperature type?\n";
+        return -1;
+    }
+
+    double lb, kip, n, kn, mn, kgf, tonf;
+    double in, ft, mm, cm, m;
+    double sec, msec;
+    double F, C;
+
+    if ((strcmp(force, "lb") == 0) || (strcmp(force, "lbs") == 0)) {
+        lb = 1.0;
+    }
+    else if ((strcmp(force, "kip") == 0) || (strcmp(force, "kips") == 0)) {
+        lb = 0.001;
+    }
+    else if ((strcmp(force, "N") == 0)) {
+        lb = 4.4482216152605;
+    }
+    else if ((strcmp(force, "kN") == 0) || (strcmp(force, "KN") == 0) || (strcmp(force, "kn") == 0)) {
+        lb = 0.0044482216152605;
+    }
+    else if ((strcmp(force, "mN") == 0) || (strcmp(force, "MN") == 0) || (strcmp(force, "mn") == 0)) {
+        lb = 0.0000044482216152605;
+    }
+    else if ((strcmp(force, "kgf") == 0)) {
+        lb = 9.80665*4.4482216152605;
+    }
+    else if ((strcmp(force, "tonf") == 0)) {
+        lb = 9.80665 / 1000.0*4.4482216152605;
+    }
+    else {
+        lb = 1.0;
+        opserr << "defaultUnits - unknown force type, valid options: lb, kip, N, kN, MN, kgf, tonf\n";
+        return -1;
+    }
+
+    if ((strcmp(length, "in") == 0) || (strcmp(length, "inch") == 0)) {
+        in = 1.0;
+    }
+    else if ((strcmp(length, "ft") == 0) || (strcmp(length, "feet") == 0)) {
+        in = 1.0 / 12.0;
+    }
+    else if ((strcmp(length, "mm") == 0)) {
+        in = 25.4;
+    }
+    else if ((strcmp(length, "cm") == 0)) {
+        in = 2.54;
+    }
+    else if ((strcmp(length, "m") == 0)) {
+        in = 0.0254;
+    }
+    else {
+        in = 1.0;
+        opserr << "defaultUnits - unknown length type, valid options: in, ft, mm, cm, m\n";
+        return -1;
+    }
+
+    if ((strcmp(time, "sec") == 0) || (strcmp(time, "Sec") == 0)) {
+        sec = 1.0;
+    }
+    else if ((strcmp(time, "msec") == 0) || (strcmp(time, "mSec") == 0)) {
+        sec = 1000.0;
+    }
+    else {
+        sec = 1.0;
+        opserr << "defaultUnits - unknown time type, valid options: sec, msec\n";
+        return -1;
+    }
+
+    if ((strcmp(temperature, "F") == 0) || (strcmp(temperature, "degF") == 0)) {
+        F = 1.0;
+    }
+    else if ((strcmp(temperature, "C") == 0) || (strcmp(temperature, "degC") == 0)) {
+        F = 9.0 / 5.0 + 32.0;
+    }
+    else {
+        F = 1.0;
+        opserr << "defaultUnits - unknown temperature type, valid options: F, C\n";
+        return -1;
+    }
+
+    kip = lb / 0.001;
+    n = lb / 4.4482216152605;
+    kn = lb / 0.0044482216152605;
+    mn = lb / 0.0000044482216152605;
+    kgf = lb / (9.80665*4.4482216152605);
+    tonf = lb / (9.80665 / 1000.0*4.4482216152605);
+
+    ft = in * 12.0;
+    mm = in / 25.44;
+    cm = in / 2.54;
+    m = in / 0.0254;
+
+    msec = sec * 0.001;
+
+    C = (F - 32.0)*5.0 / 9.0;
+
+    char string[50];
+    DL_Interpreter* theInter = cmds->getInterpreter();
+    if (theInter == 0) return -1;
+
+    sprintf(string, "lb = %.18e", lb);   theInter->runCommand(string);
+    sprintf(string, "lbf = %.18e", lb);   theInter->runCommand(string);
+    sprintf(string, "kip = %.18e", kip);   theInter->runCommand(string);
+    sprintf(string, "N = %.18e", n);   theInter->runCommand(string);
+    sprintf(string, "kN = %.18e", kn);   theInter->runCommand(string);
+    sprintf(string, "Newton = %.18e", n);   theInter->runCommand(string);
+    sprintf(string, "kNewton = %.18e", kn);   theInter->runCommand(string);
+    sprintf(string, "MN = %.18e", mn);   theInter->runCommand(string);
+    sprintf(string, "kgf = %.18e", kgf);   theInter->runCommand(string);
+    sprintf(string, "tonf = %.18e", tonf);   theInter->runCommand(string);
+
+    //sprintf(string, "in = %.18e", in);   theInter->runCommand(string);  // "in" is a keyword in Python
+    sprintf(string, "inch = %.18e", in);   theInter->runCommand(string);
+    sprintf(string, "ft = %.18e", ft);   theInter->runCommand(string);
+    sprintf(string, "mm = %.18e", mm);   theInter->runCommand(string);
+    sprintf(string, "cm = %.18e", cm);   theInter->runCommand(string);
+    sprintf(string, "m = %.18e", m);   theInter->runCommand(string);
+    sprintf(string, "meter = %.18e", m);   theInter->runCommand(string);
+
+    sprintf(string, "sec = %.18e", sec);   theInter->runCommand(string);
+    sprintf(string, "msec = %.18e", msec);   theInter->runCommand(string);
+
+    sprintf(string, "F = %.18e", F);   theInter->runCommand(string);
+    sprintf(string, "degF = %.18e", F);   theInter->runCommand(string);
+    sprintf(string, "C = %.18e", C);   theInter->runCommand(string);
+    sprintf(string, "degC = %.18e", C);   theInter->runCommand(string);
+
+    double g = 32.174049*ft / (sec*sec);
+    sprintf(string, "g = %.18e", g);   theInter->runCommand(string);
+    sprintf(string, "kg = %.18e", n*sec*sec / m);   theInter->runCommand(string);
+    sprintf(string, "Mg = %.18e", 1e3*n*sec*sec / m);   theInter->runCommand(string);
+    sprintf(string, "slug = %.18e", lb*sec*sec / ft);   theInter->runCommand(string);
+    sprintf(string, "Pa = %.18e", n / (m*m));   theInter->runCommand(string);
+    sprintf(string, "kPa = %.18e", 1e3*n / (m*m));   theInter->runCommand(string);
+    sprintf(string, "MPa = %.18e", 1e6*n / (m*m));   theInter->runCommand(string);
+    sprintf(string, "psi = %.18e", lb / (in*in));   theInter->runCommand(string);
+    sprintf(string, "ksi = %.18e", kip / (in*in));   theInter->runCommand(string);
+    sprintf(string, "psf = %.18e", lb / (ft*ft));   theInter->runCommand(string);
+    sprintf(string, "ksf = %.18e", kip / (ft*ft));   theInter->runCommand(string);
+    sprintf(string, "pcf = %.18e", lb / (ft*ft*ft));   theInter->runCommand(string);
+    sprintf(string, "in2 = %.18e", in*in);   theInter->runCommand(string);
+    sprintf(string, "ft2 = %.18e", ft*ft);   theInter->runCommand(string);
+    sprintf(string, "mm2 = %.18e", mm*mm);   theInter->runCommand(string);
+    sprintf(string, "cm2 = %.18e", cm*cm);   theInter->runCommand(string);
+    sprintf(string, "m2 = %.18e", m*m);   theInter->runCommand(string);
+    sprintf(string, "in4 = %.18e", in*in*in*in);   theInter->runCommand(string);
+    sprintf(string, "ft4 = %.18e", ft*ft*ft*ft);   theInter->runCommand(string);
+    sprintf(string, "mm4 = %.18e", mm*mm*mm*mm);   theInter->runCommand(string);
+    sprintf(string, "cm4 = %.18e", cm*cm*cm*cm);   theInter->runCommand(string);
+    sprintf(string, "m4 = %.18e", m*m*m*m);   theInter->runCommand(string);
+    sprintf(string, "pi = %.18e", 2.0*asin(1.0));   theInter->runCommand(string);
+    sprintf(string, "PI = %.18e", 2.0*asin(1.0));   theInter->runCommand(string);
 
     SimulationInformation* simulationInfo = cmds->getSimulationInformation();
     if (simulationInfo == 0) return -1;
 
-    int numdata = 1;
-    while (OPS_GetNumRemainingInputArgs() > 1) {
-	const char* flag = OPS_GetString();
-
-	if (strcmp(flag,"-user") == 0) {
-	    userName = OPS_GetString();
-
-	} else if (strcmp(flag,"-pass") == 0) {
-	    userPasswd = OPS_GetString();
-
-	} else if (strcmp(flag,"-projID") == 0) {
-	    if (OPS_GetIntInput(&numdata, &projID) < 0) {
-		opserr << "WARNING neesUpload -invalid expID\n";
-		return -1;
-	    }
-
-	} else if (strcmp(flag,"-expID") == 0) {
-	    if (OPS_GetIntInput(&numdata, &expID) < 0) {
-		opserr << "WARNING neesUpload -invalid expID\n";
-		return -1;
-	    }
-
-	} else if (strcmp(flag,"-title") == 0) {
-	    simulationInfo->setTitle(OPS_GetString());
-
-	} else if (strcmp(flag,"-description") == 0) {
-	    simulationInfo->setDescription(OPS_GetString());
-
-	}
-    }
-
-    simulationInfo->neesUpload(userName, userPasswd, projID, expID);
+    simulationInfo->setForceUnit(force);
+    simulationInfo->setLengthUnit(length);
+    simulationInfo->setTimeUnit(time);
+    simulationInfo->setTemperatureUnit(temperature);
 
     return 0;
 }
 
 int OPS_totalCPU()
 {
+    if (cmds == 0) return 0;
     EquiSolnAlgo* theAlgorithm = cmds->getAlgorithm();
     if (theAlgorithm == 0) {
 	opserr << "WARNING no algorithm is set\n";
@@ -2632,7 +2881,7 @@ int OPS_totalCPU()
 
     double value = theAlgorithm->getTotalTimeCPU();
     int numdata = 1;
-    if (OPS_SetDoubleOutput(&numdata, &value) < 0) {
+    if (OPS_SetDoubleOutput(&numdata, &value, true) < 0) {
 	opserr << "WARNING failed to set output\n";
 	return -1;
     }
@@ -2642,6 +2891,7 @@ int OPS_totalCPU()
 
 int OPS_solveCPU()
 {
+    if (cmds == 0) return 0;
     EquiSolnAlgo* theAlgorithm = cmds->getAlgorithm();
     if (theAlgorithm == 0) {
 	opserr << "WARNING no algorithm is set\n";
@@ -2650,7 +2900,7 @@ int OPS_solveCPU()
 
     double value = theAlgorithm->getSolveTimeCPU();
     int numdata = 1;
-    if (OPS_SetDoubleOutput(&numdata, &value) < 0) {
+    if (OPS_SetDoubleOutput(&numdata, &value, true) < 0) {
 	opserr << "WARNING failed to set output\n";
 	return -1;
     }
@@ -2660,6 +2910,7 @@ int OPS_solveCPU()
 
 int OPS_accelCPU()
 {
+    if (cmds == 0) return 0;
     EquiSolnAlgo* theAlgorithm = cmds->getAlgorithm();
     if (theAlgorithm == 0) {
 	opserr << "WARNING no algorithm is set\n";
@@ -2668,7 +2919,7 @@ int OPS_accelCPU()
 
     double value = theAlgorithm->getAccelTimeCPU();
     int numdata = 1;
-    if (OPS_SetDoubleOutput(&numdata, &value) < 0) {
+    if (OPS_SetDoubleOutput(&numdata, &value, true) < 0) {
 	opserr << "WARNING failed to set output\n";
 	return -1;
     }
@@ -2678,6 +2929,7 @@ int OPS_accelCPU()
 
 int OPS_numFact()
 {
+    if (cmds == 0) return 0;
     EquiSolnAlgo* theAlgorithm = cmds->getAlgorithm();
     if (theAlgorithm == 0) {
 	opserr << "WARNING no algorithm is set\n";
@@ -2686,7 +2938,7 @@ int OPS_numFact()
 
     double value = theAlgorithm->getNumFactorizations();
     int numdata = 1;
-    if (OPS_SetDoubleOutput(&numdata, &value) < 0) {
+    if (OPS_SetDoubleOutput(&numdata, &value, true) < 0) {
 	opserr << "WARNING failed to set output\n";
 	return -1;
     }
@@ -2696,36 +2948,246 @@ int OPS_numFact()
 
 int OPS_numIter()
 {
+    if (cmds == 0) return 0;
     EquiSolnAlgo* theAlgorithm = cmds->getAlgorithm();
     if (theAlgorithm == 0) {
 	opserr << "WARNING no algorithm is set\n";
 	return -1;
     }
 
-    double value = theAlgorithm->getNumIterations();
+    int value = theAlgorithm->getNumIterations();
     int numdata = 1;
-    if (OPS_SetDoubleOutput(&numdata, &value) < 0) {
+    if (OPS_SetIntOutput(&numdata, &value, true) < 0) {
 	opserr << "WARNING failed to set output\n";
 	return -1;
     }
 
-    return 0;
+    return value;
 }
 
 int OPS_systemSize()
 {
+    if (cmds == 0) return 0;
     LinearSOE* theSOE = cmds->getSOE();
     if (theSOE == 0) {
 	opserr << "WARNING no system is set\n";
 	return -1;
     }
 
-    double value = theSOE->getNumEqn();
+    int value = theSOE->getNumEqn();
     int numdata = 1;
-    if (OPS_SetDoubleOutput(&numdata, &value) < 0) {
+    if (OPS_SetIntOutput(&numdata, &value, true) < 0) {
 	opserr << "WARNING failed to set output\n";
 	return -1;
     }
 
     return 0;
 }
+
+void* OPS_ParallelRCM() {
+
+#ifdef _PARALLEL_INTERPRETERS
+    ParallelNumberer *theParallelNumberer = 0;
+    if (cmds == 0) return theParallelNumberer;
+
+    MachineBroker* machine = cmds->getMachineBroker();
+    Channel** channels = cmds->getChannels();
+    int numChannels = cmds->getNumChannels();
+
+    int rank = machine->getPID();
+
+    RCM *theRCM = new RCM(false);
+    theParallelNumberer = new ParallelNumberer(*theRCM);
+    theParallelNumberer->setProcessID(rank);
+    theParallelNumberer->setChannels(numChannels, channels);
+
+    return theParallelNumberer;
+#else
+    return 0;
+#endif
+
+}
+
+void* OPS_ParallelNumberer() {
+
+#ifdef _PARALLEL_INTERPRETERS
+    ParallelNumberer *theParallelNumberer = 0;
+    if (cmds == 0) return theParallelNumberer;
+
+    MachineBroker* machine = cmds->getMachineBroker();
+    Channel** channels = cmds->getChannels();
+    int numChannels = cmds->getNumChannels();
+
+    int rank = machine->getPID();
+
+    theParallelNumberer = new ParallelNumberer;
+    theParallelNumberer->setProcessID(rank);
+    theParallelNumberer->setChannels(numChannels, channels);
+
+    return theParallelNumberer;
+#else
+    return 0;
+#endif
+}
+
+void* OPS_ParallelDisplacementControl() {
+#ifdef _PARALLEL_INTERPRETERS
+    DistributedDisplacementControl *theDDC = 0;
+    if (cmds == 0) {
+        return theDDC;
+    }
+    int idata[3];
+    double ddata[3];
+
+    if (OPS_GetNumRemainingInputArgs() < 3) {
+        opserr << "WARNING integrator DistributedDisplacementControl node dof dU \n";
+        opserr << "<Jd minIncrement maxIncrement>\n";
+        return 0;
+    }
+
+    int num = 2;
+    if (OPS_GetIntInput(&num, &idata[0]) < 0) {
+        opserr << "WARNING: failed to get node and dof\n";
+        return 0;
+    }
+    num = 1;
+    if (OPS_GetDoubleInput(&num, &ddata[0]) < 0) {
+        opserr << "WARNING: failed to get dU\n";
+        return 0;
+    }
+    if (OPS_GetNumRemainingInputArgs() >= 3) {
+        num = 1;
+        if (OPS_GetIntInput(&num, &idata[2]) < 0) {
+            opserr << "WARNING: failed to get Jd\n";
+            return 0;
+        }
+        num = 2;
+        if (OPS_GetDoubleInput(&num, &ddata[1]) < 0) {
+            opserr << "WARNING: failed to get min and max\n";
+            return 0;
+        }
+    } else {
+        idata[2] = 1;
+        ddata[1] = ddata[0];
+        ddata[2] = ddata[0];
+    }
+
+    theDDC = new DistributedDisplacementControl(idata[0], idata[1]-1,
+                                                ddata[0], idata[2],
+                                                ddata[1], ddata[2]);
+    MachineBroker* machine = cmds->getMachineBroker();
+    Channel** channels = cmds->getChannels();
+    int numChannels = cmds->getNumChannels();
+
+    int rank = machine->getPID();
+    theDDC->setProcessID(rank);
+    theDDC->setChannels(numChannels, channels);
+    return theDDC;
+#else
+    return 0;
+#endif
+
+}
+
+void* OPS_MumpsSolver() {
+    int icntl14 = 20;
+    int icntl7 = 7;
+    while (OPS_GetNumRemainingInputArgs() > 2) {
+        const char* opt = OPS_GetString();
+        int num = 1;
+        if (strcmp(opt, "-ICNTL14") == 0) {
+            if (OPS_GetIntInput(&num, &icntl14) < 0) {
+                opserr << "WARNING: failed to get icntl14\n";
+                return 0;
+            }
+        } else if (strcmp(opt, "-ICNTL7") == 0) {
+            if (OPS_GetIntInput(&num, &icntl7) < 0) {
+                opserr << "WARNING: failed to get icntl7\n";
+                return 0;
+            }
+        }
+    }
+
+#ifdef _PARALLEL_INTERPRETERS
+    MumpsParallelSOE* soe = 0;
+
+    MumpsParallelSolver *solver= new MumpsParallelSolver(icntl7, icntl14);
+    soe = new MumpsParallelSOE(*solver);
+
+    MachineBroker* machine = cmds->getMachineBroker();
+    Channel** channels = cmds->getChannels();
+    int numChannels = cmds->getNumChannels();
+
+    int rank = machine->getPID();
+    soe->setProcessID(rank);
+    soe->setChannels(numChannels, channels);
+    return soe;
+#else
+    return 0;
+#endif
+
+}
+
+// Sensitivity:BEGIN /////////////////////////////////////////////
+
+int OPS_computeGradients()
+{
+    Integrator* theIntegrator = 0;
+    if(cmds->getStaticIntegrator() != 0) {
+    	theIntegrator = cmds->getStaticIntegrator();
+    } else if(cmds->getTransientIntegrator() != 0) {
+    	theIntegrator = cmds->getTransientIntegrator();
+    }
+
+    if (theIntegrator == 0) {
+    	opserr << "WARNING: No integrator is created\n";
+    	return -1;
+    }
+
+    if (theIntegrator->computeSensitivities() < 0) {
+	opserr << "WARNING: failed to compute sensitivities\n";
+	return -1;
+    }
+    
+    return 0;
+}
+
+int OPS_sensitivityAlgorithm()
+{
+    if (cmds == 0) return 0;
+
+    int analysisTypeTag = 1;
+    Integrator* theIntegrator = 0;
+    if(cmds->getStaticIntegrator() != 0) {
+    	theIntegrator = cmds->getStaticIntegrator();
+    } else if(cmds->getTransientIntegrator() != 0) {
+    	theIntegrator = cmds->getTransientIntegrator();
+    }
+    
+    // 1: compute at each step (default); 2: compute by command; 
+    if (OPS_GetNumRemainingInputArgs() < 1) {
+    	opserr << "ERROR: Wrong number of parameters to sensitivity algorithm." << "\n";
+    	return -1;
+    }
+    if (theIntegrator == 0) {
+    	opserr << "The integrator needs to be instantiated before " << "\n"
+    	       << " setting  sensitivity algorithm." << "\n";
+    	return -1;
+    }
+
+    const char* type = OPS_GetString();
+    if (strcmp(type,"-computeAtEachStep") == 0)
+    	analysisTypeTag = 1;
+    else if (strcmp(type,"-computeByCommand") == 0)
+    	analysisTypeTag = 2;
+    else {
+    	opserr << "Unknown sensitivity algorithm option: " << type << "\n";
+    	return -1;
+    }
+
+    theIntegrator->setComputeType(analysisTypeTag);
+    theIntegrator->activateSensitivityKey();
+	
+    return 0;
+}
+// Sensitivity:END /////////////////////////////////////////////

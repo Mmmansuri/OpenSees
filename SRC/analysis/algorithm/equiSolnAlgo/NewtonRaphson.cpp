@@ -32,7 +32,7 @@
 
 // Description: This file contains the class definition for 
 // NewtonRaphson. NewtonRaphson is a class which uses the
-// Newton-Raphson solution algorihm
+// Newton-Raphson solution algorithm
 // to solve the equations. No member functions are declared as virtual as 
 // it is not expected that this class will be subclassed.
 // 
@@ -54,34 +54,63 @@
 void* OPS_NewtonRaphsonAlgorithm()
 {
     int formTangent = CURRENT_TANGENT;
+    double iFactor = 0;
+    double cFactor = 1;
 
-    while(OPS_GetNumRemainingInputArgs() > 0) {
-	const char* type = OPS_GetString();
-	if(strcmp(type,"-secant")==0 || strcmp(type,"-Secant")==0) {
-	    formTangent = CURRENT_SECANT;
-	} else if(strcmp(type,"-initial")==0 || strcmp(type,"-Initial")==0) {
-	    formTangent = INITIAL_TANGENT;
-	} else if(strcmp(type,"-intialThenCurrent")==0 || strcmp(type,"-intialCurrent")==0) {
-	    formTangent = INITIAL_THEN_CURRENT_TANGENT;
+    while (OPS_GetNumRemainingInputArgs() > 0) {
+      const char* type = OPS_GetString();
+      if(strcmp(type,"-secant")==0 || strcmp(type,"-Secant")==0) {
+	formTangent = CURRENT_SECANT;
+	iFactor = 0;
+	cFactor = 1.0;
+      } else if(strcmp(type,"-initial")==0 || strcmp(type,"-Initial")==0) {
+	formTangent = INITIAL_TANGENT;
+	iFactor = 1.;
+	cFactor = 0;
+      } else if(strcmp(type,"-intialThenCurrent")==0 || strcmp(type,"-intialCurrent")==0) {
+	formTangent = INITIAL_THEN_CURRENT_TANGENT;
+	iFactor = 0;
+	cFactor = 1.0;
+      } else if(strcmp(type,"-hall")==0 || strcmp(type,"-Hall")==0) {
+	formTangent = HALL_TANGENT;
+	iFactor = 0.1;
+	cFactor = 0.9;
+	if (OPS_GetNumRemainingInputArgs() == 2) {
+	  double data[2];
+	  int numData = 2;
+	  if(OPS_GetDoubleInput(&numData,&data[0]) < 0) {
+	    opserr << "WARNING invalid data reading 2 hall factors\n";
+	    return 0;
+	  }
+	  iFactor = data[0];
+	  cFactor = data[1];
 	}
+      }
     }
 
-    return new NewtonRaphson(formTangent);
+    return new NewtonRaphson(formTangent, iFactor, cFactor);
 
 }
 
 // Constructor
-NewtonRaphson::NewtonRaphson(int theTangentToUse)
+NewtonRaphson::NewtonRaphson(int theTangentToUse, double iFact, double cFact)
 :EquiSolnAlgo(EquiALGORITHM_TAGS_NewtonRaphson),
- tangent(theTangentToUse)
+ tangent(theTangentToUse), iFactor(iFact), cFactor(cFact)
+{
+
+}
+
+NewtonRaphson::NewtonRaphson()
+	:EquiSolnAlgo(EquiALGORITHM_TAGS_NewtonRaphson),
+	tangent(CURRENT_TANGENT), iFactor(0.), cFactor(1.)
 {
 
 }
 
 
-NewtonRaphson::NewtonRaphson(ConvergenceTest &theT, int theTangentToUse)
+NewtonRaphson::NewtonRaphson(ConvergenceTest &theT, int theTangentToUse, double iFact, double cFact)
 :EquiSolnAlgo(EquiALGORITHM_TAGS_NewtonRaphson),
- tangent(theTangentToUse)
+ tangent(theTangentToUse), iFactor(iFact), cFactor(cFact)
 {
 
 }
@@ -97,7 +126,6 @@ NewtonRaphson::~NewtonRaphson()
 int 
 NewtonRaphson::solveCurrentStep(void)
 {
-  
     // set up some pointers and check they are valid
     // NOTE this could be taken away if we set Ptrs as protecetd in superclass
     AnalysisModel   *theAnaModel = this->getAnalysisModelPtr();
@@ -149,14 +177,14 @@ NewtonRaphson::solveCurrentStep(void)
 	}
       }	else {
 	
-	  SOLUTION_ALGORITHM_tangentFlag = tangent;
-	if (theIntegrator->formTangent(tangent) < 0){
+	SOLUTION_ALGORITHM_tangentFlag = tangent;
+	if (theIntegrator->formTangent(tangent, iFactor, cFactor) < 0){
 	    opserr << "WARNING NewtonRaphson::solveCurrentStep() -";
 	    opserr << "the Integrator failed in formTangent()\n";
 	    return -1;
 	}		    
       } 
-           if (theSOE->solve() < 0) {
+      if (theSOE->solve() < 0) {
 	opserr << "WARNING NewtonRaphson::solveCurrentStep() -";
 	opserr << "the LinearSysOfEqn failed in solve()\n";	
 	return -3;
@@ -173,26 +201,9 @@ NewtonRaphson::solveCurrentStep(void)
 	return -2;
       }	
 
-     
-     
-
-
       result = theTest->test();
        numIterations++;
       this->record(numIterations);
-
-      ///////////////////*
-//ActivateAensitivity() is to account for the reliability effect.
-//SensitivityintegratorScheme returns:  true for DC, and false for LC
- if( ((theIntegrator->activateSensitivity())==true) && (theIntegrator->computeSensitivityAtEachIteration())==true)
-    {
-       
- theIntegrator->computeSensitivities();
- theIntegrator->formUnbalance();
-
-    } 
-     
-////////////////////
 
     } while (result == -1);
 
@@ -201,12 +212,6 @@ NewtonRaphson::solveCurrentStep(void)
       opserr << "the ConvergenceTest object failed in test()\n";
       return -3;
     }
-//IntegratorSens=theIntegrator;
-
-    if( ((theIntegrator->activateSensitivity())==true) && (theIntegrator->computeSensitivityAtEachIteration())==false)
-    {
-      theIntegrator->computeSensitivities();//Abbas
-    }    
 // note - if postive result we are returning what the convergence test returned
     // which should be the number of iterations
     
@@ -217,9 +222,11 @@ NewtonRaphson::solveCurrentStep(void)
 int
 NewtonRaphson::sendSelf(int cTag, Channel &theChannel)
 {
-  static ID data(1);
+  static Vector data(3);
   data(0) = tangent;
-  return theChannel.sendID(this->getDbTag(), cTag, data);
+  data(1) = iFactor;
+  data(2) = cFactor;
+  return theChannel.sendVector(this->getDbTag(), cTag, data);
 }
 
 int
@@ -227,9 +234,11 @@ NewtonRaphson::recvSelf(int cTag,
 			Channel &theChannel, 
 			FEM_ObjectBroker &theBroker)
 {
-  static ID data(1);
-  theChannel.recvID(this->getDbTag(), cTag, data);
-  tangent = data(0);
+  static Vector data(3);
+  theChannel.recvVector(this->getDbTag(), cTag, data);
+  tangent = int(data(0));
+  iFactor = data(1);
+  cFactor = data(2);
   return 0;
 }
 

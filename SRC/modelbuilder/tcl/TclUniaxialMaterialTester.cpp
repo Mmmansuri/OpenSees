@@ -49,14 +49,20 @@ static UniaxialMaterial *theTestingUniaxialMaterial =0;
 // THE PROTOTYPES OF THE FUNCTIONS INVOKED BY THE INTERPRETER
 //
 
-int  TclUniaxialMaterialTester_setUniaxialMaterial(ClientData clientData, Tcl_Interp *interp, 
-						   int argc,   TCL_Char **argv);
+int  TclUniaxialMaterialTester_setUniaxialMaterial(ClientData clientData, 
+						   Tcl_Interp *interp, 
+						   int argc,   
+						   TCL_Char **argv);
 				    
-int  TclUniaxialMaterialTester_setStrainUniaxialMaterial(ClientData clientData, Tcl_Interp *interp,
-							 int argc,   TCL_Char **argv);
+int  TclUniaxialMaterialTester_setStrainUniaxialMaterial(ClientData clientData,
+							 Tcl_Interp *interp,
+							 int argc,   
+							 TCL_Char **argv);
 
-int  TclUniaxialMaterialTester_getStressUniaxialMaterial(ClientData clientData, Tcl_Interp *interp,
-							 int argc,   TCL_Char **argv);
+int  TclUniaxialMaterialTester_getStressUniaxialMaterial(ClientData clientData,
+							 Tcl_Interp *interp,
+							 int argc,   
+							 TCL_Char **argv);
 
 
 int  TclUniaxialMaterialTester_getTangUniaxialMaterial(ClientData clientData, Tcl_Interp *interp,
@@ -114,20 +120,20 @@ TclUniaxialMaterialTester_setUniaxialMaterial(ClientData clientData, Tcl_Interp 
   count = 1;
   // ensure the destructor has not been called - 
   if (theTclBuilder == 0) {
-    Tcl_SetResult(interp, "WARNING builder has been destroyed", TCL_STATIC);
+    opserr << "WARNING builder has been destroyed";
     return TCL_ERROR;
   }
 
   // check number of arguments in command line
   if (argc < 2) {
-    Tcl_SetResult(interp, "WARNING bad command - want: uniaxialTest matID?", TCL_STATIC);
+    opserr <<  "WARNING bad command - want: uniaxialTest matID?";
     return TCL_ERROR;
   }    
 
   // get the matID form command line
   int matID;
   if (Tcl_GetInt(interp, argv[1], &matID) != TCL_OK) {
-    Tcl_SetResult(interp, "WARNING could not read matID: uniaxialTest matID?", TCL_STATIC);
+    opserr <<  "WARNING could not read matID: uniaxialTest matID?";
     return TCL_ERROR;
   }
 
@@ -141,7 +147,7 @@ TclUniaxialMaterialTester_setUniaxialMaterial(ClientData clientData, Tcl_Interp 
   // and set the testing material to point to a copy of it
   UniaxialMaterial *theOrigMaterial = OPS_getUniaxialMaterial(matID);
   if (theOrigMaterial == 0) {
-    Tcl_SetResult(interp, "WARNING no material found with matID", TCL_STATIC);
+    opserr <<  "WARNING no material found with matID";
     return TCL_ERROR;
   }  else {
     theTestingUniaxialMaterial = theOrigMaterial->getCopy();
@@ -157,26 +163,37 @@ TclUniaxialMaterialTester_setStrainUniaxialMaterial(ClientData clientData, Tcl_I
 {
   // ensure the destructor has not been called - 
   if (theTclBuilder == 0) {
-    Tcl_SetResult(interp, "WARNING builder has been destroyed", TCL_STATIC);
+    opserr << "WARNING builder has been destroyed";
     return TCL_ERROR;
   }
 
   // check number of arguments in command line
   if (argc < 2) {
-    Tcl_SetResult(interp, "WARNING bad command - want: strainUniaxialTest strain?", TCL_STATIC);
+    opserr << "WARNING bad command - want: strainUniaxialTest strain? <temp?>\n";
     return TCL_ERROR;
   }    
 
   // get the matID form command line
   double strain;
   if (Tcl_GetDouble(interp, argv[1], &strain) != TCL_OK) {
-    Tcl_SetResult(interp, "WARNING could not read strain: strainUniaxialTest strain?", TCL_STATIC);
+    opserr <<  "WARNING could not read strain: strainUniaxialTest strain? <temp?>\n";
     return TCL_ERROR;
+  }
+
+  double temp = 0.0;
+  if (argc > 2) {
+    if (Tcl_GetDouble(interp, argv[2], &temp) != TCL_OK) {
+      opserr <<  "WARNING could not read strain: strainUniaxialTest strain? <temp?>\n";
+      return TCL_ERROR;
+    }
   }
 
   // delete the old testing material
   if (theTestingUniaxialMaterial !=0) {
-    theTestingUniaxialMaterial->setTrialStrain(strain);
+    if (argc > 2)
+      theTestingUniaxialMaterial->setTrialStrain(strain,temp,0.0); // last arg is strain rate
+    else
+      theTestingUniaxialMaterial->setTrialStrain(strain);
     if (count == countsTillCommit) {
       theTestingUniaxialMaterial->commitState();    
       count = 1;
@@ -195,10 +212,13 @@ int  TclUniaxialMaterialTester_getStressUniaxialMaterial(ClientData clientData, 
   // delete the old testing material
   if (theTestingUniaxialMaterial !=0) {
     stress = theTestingUniaxialMaterial->getStress();
-    sprintf(interp->result,"%.10e",stress);
+    char buffer[40];
+    sprintf(buffer,"%.10e",stress);
+    Tcl_SetResult(interp, buffer, TCL_VOLATILE);
+    //    sprintf(interp->result,"%.10e",stress);
     return TCL_OK;
   } else {
-    Tcl_SetResult(interp, "WARNING no active UniaxialMaterial - use uniaxialTest command", TCL_STATIC);    
+    opserr << "WARNING no active UniaxialMaterial - use uniaxialTest command\n";    
     return TCL_ERROR;
   }
 }
@@ -211,10 +231,13 @@ int  TclUniaxialMaterialTester_getTangUniaxialMaterial(ClientData clientData, Tc
   // delete the old testing material
   if (theTestingUniaxialMaterial !=0) {
     tangent = theTestingUniaxialMaterial->getTangent();
-    sprintf(interp->result,"%.10e",tangent);
+    char buffer[40];
+    sprintf(buffer,"%.10e",tangent);
+    Tcl_SetResult(interp, buffer, TCL_VOLATILE);
+    //    sprintf(interp->result,"%.10e",tangent);
     return TCL_OK;
   } else {
-    Tcl_SetResult(interp, "WARNING no active UniaxialMaterial - use uniaxialTest command", TCL_STATIC);    
+    opserr <<  "WARNING no active UniaxialMaterial - use uniaxialTest command\n";    
     return TCL_ERROR;
   }
 }

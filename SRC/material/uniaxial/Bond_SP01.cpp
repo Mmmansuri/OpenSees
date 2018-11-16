@@ -27,7 +27,7 @@
 // Revision:		Jian Zhao, University of Wisconsin, Milwaukee 		04/2006
 // Revision:		Jian Zhao, University of Wisconsin, Milwaukee. Fixed the jump in the negative direction
 //
-// Description: This file contains the class defination for Uniaxial material Bond_SP01. 
+// Description: This file contains the class definition for Uniaxial material Bond_SP01. 
 // Bond_SP01: Strain penetration of fully anchored rebars w/o bond damage.
 
 
@@ -90,8 +90,8 @@ Bond_SP01::Bond_SP01
   
   
   // Set parameters for bar stress-slip envelope 
-  Cr = 1.01;						//% need to be large than 1 pretty arbitary
-  Ks = pow(R,Kz/2.5);		//% pretty arbitary
+  Cr = 1.01;						//% need to be large than 1 pretty arbitrary
+  Ks = pow(R,Kz/2.5);		//% pretty arbitrary
   slvrg = pow(12.0/30.0,1/0.4)*0.04;			//%the slip corresponding to the virgin friction in local bond-slip model
   
   // Assume symmetric envelope. This needs to be changed later because end-bearing participate when under compression
@@ -116,8 +116,8 @@ UniaxialMaterial(tag,MAT_TAG_Bond_SP01),
 
 	
 	// Set bar stress-slip envelope  (yield point)
-	Cr = 1.01;				//% need to be large than 1 pretty arbitary
-	Ks = pow(R,Kz/2.5);		//% pretty arbitary
+	Cr = 1.01;				//% need to be large than 1 pretty arbitrary
+	Ks = pow(R,Kz/2.5);		//% pretty arbitrary
 	slvrg = pow(12.0/30.0,1/0.4)*0.04;			//%the slip corresponding to the virgin friction in local bond-slip model
 
 	// Assume symmetric envelope 
@@ -225,7 +225,7 @@ void Bond_SP01::determineTrialState (double ts, double dslip)
 		return;
 	}
 
-	if (Tloading == 0)						//the inital step when loading/unloading is not determined
+	if (Tloading == 0)						//the initial step when loading/unloading is not determined
 	{
 		Tload = getEnvelopeStress(ts);
 		if (dslip > 0.0)					//positive change in slip --> loading (Tloading = 1)
@@ -233,7 +233,7 @@ void Bond_SP01::determineTrialState (double ts, double dslip)
 			Tloading = 1;
 			CminHSlip = -slvrg;				//avoid divided by zero later in determine reloading path
 		}
-		else								//negtive change in slip --> unloading (Tloading = -1)
+		else								//negative change in slip --> unloading (Tloading = -1)
 		{
 			Tloading = -1;
 			CmaxHSlip = slvrg;				//avoid divided by zero later in determine reloading path
@@ -812,17 +812,35 @@ int Bond_SP01::recvSelf (int cTag, Channel& theChannel,
 
 void Bond_SP01::Print (OPS_Stream& s, int flag)
 {
-   s << "Bond_SP01 tag: " << this->getTag() << endln;
-   s << "  sy: " << sy << " ";
-   s << "  fy: " << fy << " ";
-   s << "  su: " << su << " ";
-   s << "  fu: " << fu << " ";
-   s << "  Kz: " << Kz << " ";
-   s << "  R: " << R << " ";
-   s << "  Cd: " << Cd << " ";
-   s << "  db: " << db << " ";
-   s << "  fc: " << fc << " ";
-   s << "  lba:" << lba << " ";
+    if (flag == OPS_PRINT_PRINTMODEL_MATERIAL) {
+        s << "Bond_SP01 tag: " << this->getTag() << endln;
+        s << "  sy: " << sy << ", ";
+        s << "  fy: " << fy << ", ";
+        s << "  su: " << su << ", ";
+        s << "  fu: " << fu << ", ";
+        s << "  Kz: " << Kz << ", ";
+        s << "  R: " << R << ", ";
+        s << "  Cd: " << Cd << ", ";
+        s << "  db: " << db << ", ";
+        s << "  fc: " << fc << ", ";
+        s << "  lba:" << lba;
+    }
+
+    if (flag == OPS_PRINT_PRINTMODEL_JSON) {
+        s << "\t\t\t{";
+        s << "\"name\": \"" << this->getTag() << "\", ";
+        s << "\"type\": \"Bond_SP01\", ";
+        s << "\"sy\": " << sy << ", ";
+        s << "\"fy\": " << fy << ", ";
+        s << "\"su\": " << su << ", ";
+        s << "\"fu\": " << fu << ", ";
+        s << "\"Kz\": " << Kz << ", ";
+        s << "\"R\": " << R << ", ";
+        s << "\"Cd\": " << Cd << ", ";
+        s << "\"db\": " << db << ", ";
+        s << "\"fc\": " << fc << ", ";
+        s << "\"lba\": " << lba << "}";
+    }
 }
 
 

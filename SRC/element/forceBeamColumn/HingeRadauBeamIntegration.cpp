@@ -53,20 +53,41 @@ void* OPS_HingeRadauBeamIntegration(int& integrationTag, ID& secTags)
     }
 
     // inputs: 
-    int iData[6];
-    int numData = 6;
-    if(OPS_GetIntInput(&numData,&iData[0]) < 0) return 0;
+    int iData[4];
+    double dData[2];
+    int numData = 2;
+    if(OPS_GetIntInput(&numData,&iData[0]) < 0) {
+	opserr << "WARNING: failed to get tag and secTagI\n";
+	return 0;
+    }
+    numData = 1;
+    if(OPS_GetDoubleInput(&numData,&dData[0]) < 0) {
+	opserr << "WARNING: failed to get lpI\n";
+	return 0;
+    }
+    if(OPS_GetIntInput(&numData,&iData[2]) < 0) {
+	opserr << "WARNING: failed to get secTagJ\n";
+	return 0;
+    }
+    if(OPS_GetDoubleInput(&numData,&dData[1]) < 0) {
+	opserr << "WARNING: failed to get lpJ\n";
+	return 0;
+    }
+    if(OPS_GetIntInput(&numData,&iData[3]) < 0) {
+	opserr << "WARNING: failed to get secTagE\n";
+	return 0;
+    }
 
     integrationTag = iData[0];
     secTags.resize(6);
     secTags(0) = iData[1];
-    secTags(1) = iData[5];
-    secTags(2) = iData[5];
-    secTags(3) = iData[5];
-    secTags(4) = iData[5];
-    secTags(5) = iData[3];
+    secTags(1) = iData[3];
+    secTags(2) = iData[3];
+    secTags(3) = iData[3];
+    secTags(4) = iData[3];
+    secTags(5) = iData[2];
 
-    return new HingeRadauBeamIntegration(iData[2],iData[4]);
+    return new HingeRadauBeamIntegration(dData[0],dData[1]);
 }
 
 HingeRadauBeamIntegration::HingeRadauBeamIntegration(double lpi,
@@ -177,15 +198,18 @@ HingeRadauBeamIntegration::setParameter(const char **argv, int argc,
   if (argc < 1)
     return -1;
 
-  if (strcmp(argv[0],"lpI") == 0)
+  if (strcmp(argv[0],"lpI") == 0) {
+    param.setValue(lpI);
     return param.addObject(1, this);
-
-  if (strcmp(argv[0],"lpJ") == 0)
+  }
+  if (strcmp(argv[0],"lpJ") == 0) {
+    param.setValue(lpJ);
     return param.addObject(2, this);
-
-  if (strcmp(argv[0],"lp") == 0)
+  }
+  if (strcmp(argv[0],"lp") == 0) {
+    param.setValue(lpI);
     return param.addObject(3, this);
-
+  }
   return -1;
 }
 
@@ -219,11 +243,17 @@ HingeRadauBeamIntegration::activateParameter(int paramID)
 void
 HingeRadauBeamIntegration::Print(OPS_Stream &s, int flag)
 {
-  s << "HingeRadau" << endln;
-  s << " lpI = " << lpI;
-  s << " lpJ = " << lpJ << endln;
-
-  return;
+	if (flag == OPS_PRINT_PRINTMODEL_JSON) {
+		s << "{\"type\": \"HingeRadau\", ";
+		s << "\"lpI\": " << lpI << ", ";
+		s << "\"lpJ\": " << lpJ << "}";
+	}
+	
+	else {
+		s << "HingeRadau" << endln;
+		s << " lpI = " << lpI;
+		s << " lpJ = " << lpJ << endln;
+	}
 }
 
 void 

@@ -18,10 +18,6 @@
 **                                                                    **
 ** ****************************************************************** */
 
-// $Revision$
-// $Date$
-// $URL$
-
 // Written: Manish Kumar (mkumar2@buffalo.edu)
 // Credits: This element extends the formulation of elastomericBearing element written by Andreas Schellenberg 
 // Created: 02/12
@@ -629,7 +625,7 @@ int LeadRubberX::update()
     }
     
     //2) calculate shear forces and stiffnesses in basic y- and z-direction
-    // get displacement increments (trial-commited)
+    // get displacement increments (trial-committed)
     Vector delta_ub = ub - ubC;
     if (sqrt(pow(delta_ub(1),2)+pow(delta_ub(2),2)) > 0.0)  {
         
@@ -671,7 +667,7 @@ int LeadRubberX::update()
             }
             
             // advance one step
-            // delta_z = f/Df; either write a function to do matrix devision or use the solution below
+            // delta_z = f/Df; either write a function to do matrix division or use the solution below
             delta_z(0) = (f(0)*Df(1,1)-f(1)*Df(0,1))/(Df(0,0)*Df(1,1)-Df(0,1)*Df(1,0));
             delta_z(1) = (f(0)*Df(1,0)-f(1)*Df(0,0))/(Df(0,1)*Df(1,0)-Df(0,0)*Df(1,1));
             z -= delta_z;
@@ -1123,7 +1119,7 @@ int LeadRubberX::displaySelf(Renderer &theViewer,
 
 void LeadRubberX::Print(OPS_Stream &s, int flag)
 {
-    if (flag == 0)  {
+    if (flag == OPS_PRINT_CURRENTSTATE) {
         // print everything
         s << "************************************************************" << endln;
         s << "Element: " << this->getTag();
@@ -1135,7 +1131,7 @@ void LeadRubberX::Print(OPS_Stream &s, int flag)
         s << "MATERIAL PROPERTIES" << endln;
         s << "G: " << G << " kc: " << kc << " ac: " << ac << " PhiM: " << PhiM << " shearDistI: " << shearDistI << " mass: " << mass << endln;
         s << " qL: " << qL << " cL: " << cL << " kS: " << kS << " aS: " << aS << endln;
-        s << "MECHANICAL PROPERTIES: HORIZONTAL MOTION\n" << endln;
+        s << "MECHANICAL PROPERTIES: HORIZONTAL MOTION" << endln;
         s << "k0: " << k0 << " ke: " << ke << " qYield: " << qYield << " DeltaT: " << TL_commit << " Fcrmin: " << Fcrmin << endln;
         s << "MECHANICAL PROPERTIES: VERTICAL MOTION" << endln;
         s << "Kv: "<< Kv << " Fc: " << Fc << " Fcr: " << Fcr << " Fcn: " << Fcn << " umax: " << umax << endln;
@@ -1143,8 +1139,29 @@ void LeadRubberX::Print(OPS_Stream &s, int flag)
         s << "  resisting force: " << this->getResistingForce() << endln;
         s << "************************************************************" << endln;
         //s <<"time: " << tCommit <<" ke0: " << G*A/Tr  <<" ke: " << ke <<" Fcr: "<< Fcr << " Fcrmin: "<< Fcrmin <<" Kv0: "<< Kv0<<" Kv: "<< Kv << " qYield0: " << qYield0 << " qYield: " << qYield << " DeltaT: " << TL_commit << endln;
-    } else if (flag == 1)  {
-        // does nothing
+    }
+    
+    if (flag == OPS_PRINT_PRINTMODEL_JSON) {
+        s << "\t\t\t{";
+        s << "\"name\": " << this->getTag() << ", ";
+        s << "\"type\": \"LeadRubberX\", ";
+        s << "\"nodes\": [" << connectedExternalNodes(0) << ", " << connectedExternalNodes(1) << "], ";
+        s << "\"D1\": " << D1 << ", ";
+        s << "\"D2\": " << D2 << ", ";
+        s << "\"L\": " << L << ", ";
+        s << "\"Tr\": " << Tr << ", ";
+        s << "\"S\": " << S << ", ";
+        s << "\"A\": " << A << ", ";
+        s << "\"G\": " << G << ", ";
+        s << "\"kc\": " << kc << ", ";
+        s << "\"ac\": " << ac << ", ";
+        s << "\"PhiM\": " << PhiM << ", ";
+        s << "\"shearDistI\": " << shearDistI << ", ";
+        s << "\"mass\": " << mass << ", ";
+        s << "\"qL\": " << qL << ", ";
+        s << "\"cL\": " << cL << ", ";
+        s << "\"kS\": " << kS << ", ";
+        s << "\"aS\": " << aS << "}";
     }
 }
 
@@ -1392,7 +1409,7 @@ void LeadRubberX::setUp()
         exit(-1);
     }
     
-    // establish orientation of element for the tranformation matrix
+    // establish orientation of element for the transformation matrix
     // z = x cross y
     Vector z(3);
     z(0) = x(1)*y(2) - x(2)*y(1);

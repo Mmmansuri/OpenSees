@@ -34,7 +34,7 @@
 //
 // Description: This file contains the class definition for 
 // ModifiedNewton. ModifiedNewton is a class which performs a modified 
-// Newton-Raphson  solution algorihm in solving the equations.
+// Newton-Raphson solution algorithm in solving the equations.
 // No member functions are declared as virtual as 
 // it is not expected that this class will be subclassed.
 // 
@@ -48,9 +48,9 @@ class ConvergenceTest;
 class ModifiedNewton: public EquiSolnAlgo
 {
   public:
-    ModifiedNewton(int tangent = CURRENT_TANGENT);
-    ModifiedNewton(ConvergenceTest &theTest, int tangent = CURRENT_TANGENT);
-    ~ModifiedNewton();
+  ModifiedNewton(int tangent, double iFactor = 0.0, double cFactor = 1.0);
+  ModifiedNewton(ConvergenceTest &theTest, int tangent = CURRENT_TANGENT, double iFactor = 0.0, double cFactor = 1.0);
+  ~ModifiedNewton();
 
     int solveCurrentStep(void);    
     int getNumIterations(void);
@@ -66,6 +66,9 @@ class ModifiedNewton: public EquiSolnAlgo
   private:
     int tangent;
     int numIterations;
+
+    double iFactor;
+    double cFactor;
 };
 
 #endif

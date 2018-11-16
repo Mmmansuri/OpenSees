@@ -11,7 +11,7 @@
 ** Developed by:                                                      **
 **   Quan Gu (quangu@xmu.edu.cn)                                      **  
 **                                                                    **     
-** reference: Hofstetter, G., J.C. Simo and R.L. Taylor, \A modifed   **
+** reference: Hofstetter, G., J.C. Simo and R.L. Taylor, \A modified  **
 ** cap-model: Closest point solution algorithms\, Computers &         **
 ** Structures, 46 (1993),203-214.                                     **
 **                                                                    **
@@ -830,13 +830,13 @@ double CapPlasticity::Bisection(double tol, double normS, double I1_trial ){
   } // while
   
   if (fabs(f) > relative_tol) {
-    opserr<< "Warning3:No convergence in CapPlasticity::Bisection" << endln;
+    opserr << "Warning3:No convergence in CapPlasticity::Bisection\n";
     //exit(-1); 
   }
   
   flag =1; 
  if (k <0 ) {
-	opserr<<"Fatal: CapPlasticity:: Bisection, k <0! mode is 3 ! k is adjusted to CHardening_k !!!!! "endln;    // --- April 2013. 
+	opserr << "Fatal: CapPlasticity:: Bisection, k <0! mode is 3 ! k is adjusted to CHardening_k !!!!!\n";    // --- April 2013. 
 	k = CHardening_k;
 
  }

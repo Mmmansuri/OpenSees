@@ -201,7 +201,14 @@ int TRBDF3::formEleTangent(FE_Element *theEle)
         theEle->addKiToTang(c1);
         theEle->addCtoTang(c2);
         theEle->addMtoTang(c3);
-    }
+    } else if (statusFlag == HALL_TANGENT)  {
+        theEle->addKtToTang(c1*cFactor);
+        theEle->addKiToTang(c1*iFactor);
+        theEle->addCtoTang(c2);
+        theEle->addMtoTang(c3);
+    } else {
+      opserr << "TRBDF3::formEleTangent - unknown FLAG\n";
+    }    
     
     return 0;
 }    
@@ -380,6 +387,12 @@ int TRBDF3::update(const Vector &deltaU)
     return 0;
 }    
 
+
+const Vector &
+TRBDF3::getVel()
+{
+  return *Udot;
+}
 
 int TRBDF3::sendSelf(int cTag, Channel &theChannel)
 {

@@ -47,6 +47,10 @@ class Vector
     Vector();
     Vector(int);
     Vector(const Vector &);    
+#ifdef USE_CXX11   
+    Vector(Vector &&);    
+#endif
+
     Vector(double *data, int size);
     ~Vector();
 
@@ -63,8 +67,26 @@ class Vector
     int addVector(double factThis, const Vector &other, double factOther);
     int addMatrixVector(double factThis, const Matrix &m, const Vector &v, double factOther); 
     int addMatrixTransposeVector(double factThis, const Matrix &m, const Vector &v, double factOther);
+#if _DLL
+	inline double* GetData() { return this->theData; }
+	void Print() {
+		opserr << "[";
+		for (int i = 0; i < this->sz; i++)
+		{
+			opserr << this->operator()(i) << ", ";
+		}
+		opserr << "]" << endln;
+	}
 
-    
+	void Print() const {
+		opserr << "[";
+		for (int i = 0; i < this->sz; i++)
+		{
+			opserr << this->operator()(i) << ", ";
+		}
+		opserr << "]" << endln;
+	}
+#endif
     // overloaded operators
     inline double operator()(int x) const;
     inline double &operator()(int x);
@@ -72,7 +94,9 @@ class Vector
     double &operator[](int x);
     Vector operator()(const ID &rows) const;
     Vector &operator=(const Vector  &V);
-    
+#ifdef USE_CXX11   
+    Vector &operator=(Vector  &&V);
+#endif
     Vector &operator+=(double fact);
     Vector &operator-=(double fact);
     Vector &operator*=(double fact);

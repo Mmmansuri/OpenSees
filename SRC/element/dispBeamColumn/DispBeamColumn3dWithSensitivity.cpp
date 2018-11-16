@@ -84,7 +84,7 @@ void* OPS_DispBeamColumn3dWithSensitivity()
     }
 
     // check transf
-    CrdTransf* theTransf = OPS_GetCrdTransf(iData[3]);
+    CrdTransf* theTransf = OPS_getCrdTransf(iData[3]);
     if(theTransf == 0) {
 	opserr<<"coord transfomration not found\n";
 	return 0;
@@ -781,7 +781,7 @@ DispBeamColumn3dWithSensitivity::addInertiaLoadToUnbalance(const Vector &accel)
   const Vector &Raccel2 = theNodes[1]->getRV(accel);
   
   if (6 != Raccel1.Size() || 6 != Raccel2.Size()) {
-    opserr << "DispBeamColumn3dWithSensitivity::addInertiaLoadToUnbalance matrix and vector sizes are incompatable\n";
+    opserr << "DispBeamColumn3dWithSensitivity::addInertiaLoadToUnbalance matrix and vector sizes are incompatible\n";
     return -1;
   }
   
@@ -1156,31 +1156,48 @@ DispBeamColumn3dWithSensitivity::recvSelf(int commitTag, Channel &theChannel,
 void
 DispBeamColumn3dWithSensitivity::Print(OPS_Stream &s, int flag)
 {
-  s << "\nDispBeamColumn3dWithSensitivity, element id:  " << this->getTag() << endln;
-  s << "\tConnected external nodes:  " << connectedExternalNodes;
-  s << "\tmass density:  " << rho << endln;
+    if (flag == OPS_PRINT_CURRENTSTATE) {
+        s << "\nDispBeamColumn3dWithSensitivity, element id:  " << this->getTag() << endln;
+        s << "\tConnected external nodes:  " << connectedExternalNodes;
+        s << "\tmass density:  " << rho << endln;
 
-  double N, Mz1, Mz2, Vy, My1, My2, Vz, T;
-  double L = crdTransf->getInitialLength();
-  double oneOverL = 1.0/L;
+        double N, Mz1, Mz2, Vy, My1, My2, Vz, T;
+        double L = crdTransf->getInitialLength();
+        double oneOverL = 1.0 / L;
 
-  N   = q(0);
-  Mz1 = q(1);
-  Mz2 = q(2);
-  Vy  = (Mz1+Mz2)*oneOverL;
-  My1 = q(3);
-  My2 = q(4);
-  Vz  = -(My1+My2)*oneOverL;
-  T   = q(5);
+        N = q(0);
+        Mz1 = q(1);
+        Mz2 = q(2);
+        Vy = (Mz1 + Mz2)*oneOverL;
+        My1 = q(3);
+        My2 = q(4);
+        Vz = -(My1 + My2)*oneOverL;
+        T = q(5);
 
- /* s << "\tEnd 1 Forces (P Mz Vy My Vz T): "
-    << -N+p0[0] << ' ' << Mz1 << ' ' <<  Vy+p0[1] << ' ' << My1 << ' ' <<  Vz+p0[3] << ' ' << -T << endln;
-  s << "\tEnd 2 Forces (P Mz Vy My Vz T): "
-    <<  N << ' ' << Mz2 << ' ' << -Vy+p0[2] << ' ' << My2 << ' ' << -Vz+p0[4] << ' ' <<  T << endln;
-  s <<"DispBeamColumn3dWithSensitivity::getTangent "<<this->getTangentStiff()<<endln;
-  */
-//  for (int i = 0; i < numSections; i++)
-//  theSections[i]->Print(s,2);
+        /* s << "\tEnd 1 Forces (P Mz Vy My Vz T): "
+           << -N+p0[0] << ' ' << Mz1 << ' ' <<  Vy+p0[1] << ' ' << My1 << ' ' <<  Vz+p0[3] << ' ' << -T << endln;
+         s << "\tEnd 2 Forces (P Mz Vy My Vz T): "
+           <<  N << ' ' << Mz2 << ' ' << -Vy+p0[2] << ' ' << My2 << ' ' << -Vz+p0[4] << ' ' <<  T << endln;
+         s <<"DispBeamColumn3dWithSensitivity::getTangent "<<this->getTangentStiff()<<endln;
+         */
+         //  for (int i = 0; i < numSections; i++)
+         //  theSections[i]->Print(s,2);
+    }
+
+    if (flag == OPS_PRINT_PRINTMODEL_JSON) {
+        s << "\t\t\t{";
+        s << "\"name\": " << this->getTag() << ", ";
+        s << "\"type\": \"DispBeamColumn3dWithSensitivity\", ";
+        s << "\"nodes\": [" << connectedExternalNodes(0) << ", " << connectedExternalNodes(1) << "], ";
+        s << "\"sections\": [";
+        for (int i = 0; i < numSections - 1; i++)
+            s << "\"" << theSections[i]->getTag() << "\", ";
+        s << "\"" << theSections[numSections - 1]->getTag() << "\"], ";
+        s << "\"integration\": ";
+        beamInt->Print(s, flag);
+        s << ", \"massperlength\": " << rho << ", ";
+        s << "\"crdTransformation\": \"" << crdTransf->getTag() << "\"}";
+    }
 }
 
 
@@ -1262,15 +1279,15 @@ DispBeamColumn3dWithSensitivity::setResponse(const char **argv, int argc, OPS_St
     // local force -
     }  else if (strcmp(argv[0],"localForce") == 0 || strcmp(argv[0],"localForces") == 0) {
 
-      output.tag("ResponseType","N_ 1");
+      output.tag("ResponseType","N_1");
       output.tag("ResponseType","Vy_1");
       output.tag("ResponseType","Vz_1");
       output.tag("ResponseType","T_1");
       output.tag("ResponseType","My_1");
-      output.tag("ResponseType","Tz_1");
+      output.tag("ResponseType","Mz_1");
       output.tag("ResponseType","N_2");
-      output.tag("ResponseType","Py_2");
-      output.tag("ResponseType","Pz_2");
+      output.tag("ResponseType","Vy_2");
+      output.tag("ResponseType","Vz_2");
       output.tag("ResponseType","T_2");
       output.tag("ResponseType","My_2");
       output.tag("ResponseType","Mz_2");

@@ -18,10 +18,6 @@
 **                                                                    **
 ** ****************************************************************** */
 
-// $Revision$
-// $Date$
-// $URL$
-
 // Written: Andreas Schellenberg (andreas.schellenberg@gmail.com)
 // Created: 09/07
 // Revision: A
@@ -114,7 +110,6 @@ void* OPS_Actuator()
     // now create the actuator and add it to the Domain
     return new Actuator(tag, ndm, iNode, jNode, EA, ipPort,
 			doRayleigh, rho);
-    
 }
 
 
@@ -334,7 +329,7 @@ void Actuator::setDomain(Domain *theDomain)
     const Vector &end1Crd = theNodes[0]->getCrds();
     const Vector &end2Crd = theNodes[1]->getCrds();	
     
-    // initalize the cosines
+    // initialize the cosines
     cosX[0] = cosX[1] = cosX[2] = 0.0;
     for (int i=0; i<numDIM; i++)
         cosX[i] = end2Crd(i)-end1Crd(i);
@@ -716,7 +711,7 @@ int Actuator::displaySelf(Renderer &theViewer,
 
 void Actuator::Print(OPS_Stream &s, int flag)
 {
-    if (flag == 0)  {
+    if (flag == OPS_PRINT_CURRENTSTATE)  {
         // print everything
         s << "Element: " << this->getTag() << endln;
         s << "  type: Actuator, iNode: " << connectedExternalNodes(0)
@@ -727,8 +722,18 @@ void Actuator::Print(OPS_Stream &s, int flag)
         s << "  mass per unit length: " << rho << endln;
         // determine resisting forces in global system
         s << "  resisting force: " << this->getResistingForce() << endln;
-    } else if (flag == 1)  {
-        // does nothing
+    }
+
+    if (flag == OPS_PRINT_PRINTMODEL_JSON) {
+        s << "\t\t\t{";
+        s << "\"name\": " << this->getTag() << ", ";
+        s << "\"type\": \"Actuator\", ";
+        s << "\"nodes\": [" << connectedExternalNodes(0) << ", " << connectedExternalNodes(1) << "], ";
+        s << "\"EA\": " << EA << ", ";
+        s << "\"L\": " << L << ", ";
+        s << "\"ipPort\": " << ipPort << ", ";
+        s << "\"addRayleigh\": " << addRayleigh << ", ";
+        s << "\"massperlength\": " << rho << "}";
     }
 }
 

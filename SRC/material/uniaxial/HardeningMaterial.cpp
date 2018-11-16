@@ -53,12 +53,14 @@ void* OPS_HardeningMaterial()
     int tag;
     numdata = 1;
     if (OPS_GetIntInput(&numdata,&tag) < 0) {
+	opserr << "WARNING: failed to read tag\n";
 	return 0;
     }
 
-    double data[5];
-    numdata = 5;
+    double data[4];
+    numdata = 4;
     if (OPS_GetDoubleInput(&numdata,data)) {
+	opserr << "WARING: failed to read data\n";
 	return 0;
     }
 
@@ -67,6 +69,7 @@ void* OPS_HardeningMaterial()
     if (numdata > 0) {
 	numdata = 1;
 	if (OPS_GetDouble(&numdata,&eta)<0) {
+	    opserr << "WARNING: failed to read eta\n";
 	    return 0;
 	}
     }
@@ -310,12 +313,25 @@ HardeningMaterial::recvSelf(int cTag, Channel &theChannel,
 void 
 HardeningMaterial::Print(OPS_Stream &s, int flag)
 {
-    s << "HardeningMaterial, tag: " << this->getTag() << endln;
-    s << "  E: " << E << endln;
-    s << "  sigmaY: " << sigmaY << endln;
-    s << "  Hiso: " << Hiso << endln;
-    s << "  Hkin: " << Hkin << endln;
-    s << "  eta: " << eta << endln;
+	if (flag == OPS_PRINT_PRINTMODEL_MATERIAL) {
+		s << "HardeningMaterial, tag: " << this->getTag() << endln;
+		s << "  E: " << E << endln;
+		s << "  sigmaY: " << sigmaY << endln;
+		s << "  Hiso: " << Hiso << endln;
+		s << "  Hkin: " << Hkin << endln;
+		s << "  eta: " << eta << endln;
+	}
+    
+	if (flag == OPS_PRINT_PRINTMODEL_JSON) {
+		s << "\t\t\t{";
+		s << "\"name\": \"" << this->getTag() << "\", ";
+		s << "\"type\": \"HardeningMaterial\", ";
+		s << "\"E\": " << E << ", ";
+		s << "\"fy\": " << sigmaY << ", ";
+		s << "\"Hiso\": " << Hiso << ", ";
+		s << "\"Hkin\": " << Hkin << ", ";
+		s << "\"eta\": " << eta << "}";
+	}
 }
 
 
@@ -439,20 +455,20 @@ HardeningMaterial::getStressSensitivity(int gradIndex, bool conditional)
 
 		int sign = (xsi < 0) ? -1 : 1;
 
-		//double dGamma = f / (E+Hiso+Hkin);
+		double dGamma = f / (E+Hiso+Hkin);
 		
 		double CbackStressSensitivity = (HkinSensitivity*CplasticStrain + Hkin*CplasticStrainSensitivity);
 
 		double fSensitivity = (TstressSensitivity-CbackStressSensitivity)*sign
 			- SigmaYSensitivity - HisoSensitivity*Chardening - Hiso*ChardeningSensitivity;
 		
-		//double dGammaSensitivity = 
-		//	(fSensitivity*(E+Hkin+Hiso)-f*(ESensitivity+HkinSensitivity+HisoSensitivity))
-		//	/((E+Hkin+Hiso)*(E+Hkin+Hiso));
-		double dGammaSensitivity = fSensitivity/(E+Hkin+Hiso);
+		double dGammaSensitivity = 
+			(fSensitivity*(E+Hkin+Hiso)-f*(ESensitivity+HkinSensitivity+HisoSensitivity))
+			/((E+Hkin+Hiso)*(E+Hkin+Hiso));
+		//double dGammaSensitivity = fSensitivity/(E+Hkin+Hiso);
 		
-		//sensitivity = (TstressSensitivity-dGammaSensitivity*E*sign-dGamma*ESensitivity*sign);
-		sensitivity = TstressSensitivity-dGammaSensitivity*E*sign;
+		sensitivity = (TstressSensitivity-dGammaSensitivity*E*sign-dGamma*ESensitivity*sign);
+		//sensitivity = TstressSensitivity-dGammaSensitivity*E*sign;
 	}
 
 	return sensitivity;
@@ -573,17 +589,15 @@ HardeningMaterial::commitSensitivity(double TstrainSensitivity, int gradIndex, i
 
 		int sign = (xsi < 0) ? -1 : 1;
 		//f = 0.0;
-		//double dGamma = f / (E+Hiso+Hkin);
+		double dGamma = f / (E+Hiso+Hkin);
 
 		double CbackStressSensitivity = (HkinSensitivity*CplasticStrain + Hkin*CplasticStrainSensitivity);
 
 		double fSensitivity = (TstressSensitivity-CbackStressSensitivity)*sign
 			- SigmaYSensitivity - HisoSensitivity*Chardening - Hiso*ChardeningSensitivity;
 
-		//double dGammaSensitivity = 
-		//	(fSensitivity*(E+Hkin+Hiso)-f*(ESensitivity+HkinSensitivity+HisoSensitivity))
-		//	/((E+Hkin+Hiso)*(E+Hkin+Hiso));
-		double dGammaSensitivity = fSensitivity/(E+Hkin+Hiso);
+	    double dGammaSensitivity = (fSensitivity*(E+Hkin+Hiso)-f*(ESensitivity+HkinSensitivity+HisoSensitivity))/((E+Hkin+Hiso)*(E+Hkin+Hiso));
+		//double dGammaSensitivity = fSensitivity/(E+Hkin+Hiso);
 
 		(*SHVs)(0,gradIndex) += dGammaSensitivity*sign;
 		(*SHVs)(1,gradIndex) += dGammaSensitivity;

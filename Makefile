@@ -74,6 +74,37 @@ tk:
 	@$(CD) $(FE)/tcl;  $(MAKE) tk;
 	@$(CD) $(FE)/modelbuilder/tcl;  $(MAKE) tk;
 
+OpenSeesPy: python
+
+python: 
+ifdef MKDIR
+	$(MKDIR) $(HOME)/bin
+	$(MKDIR) $(HOME)/lib
+endif
+	@( \
+	for f in $(DIRS); \
+	do \
+		$(CD) $$f; \
+		$(MAKE); \
+		$(CD) ..; \
+	done );
+	@$(ECHO) LIBRARIES BUILT ... NOW LINKING OpenSeesPy Module;
+	@$(CD) $(FE)/interpreter; $(MAKE) pythonmodule;
+
+pythonmain: 
+ifdef MKDIR
+	$(MKDIR) $(HOME)/bin
+	$(MKDIR) $(HOME)/lib
+endif
+	@( \
+	for f in $(DIRS); \
+	do \
+		$(CD) $$f; \
+		$(MAKE); \
+		$(CD) ..; \
+	done );
+	@$(ECHO) LIBRARIES BUILT ... NOW LINKING OpenSeesPy Module;
+	@$(CD) $(FE)/interpreter; $(MAKE) python;
 
 libs:
 	@( \
@@ -90,7 +121,7 @@ clean:
 	do \
 		$(CD) $$f; \
 		$(ECHO) Making lib in $$f; \
-		$(MAKE) wipe; \
+		$(MAKE) clean; \
 		$(CD) ..; \
 	done );
 	@$(RM) $(RMFLAGS) *.o *~ core
@@ -103,6 +134,7 @@ wipe:
 		$(CD) $$f; \
 		$(ECHO) Making lib in $$f; \
 		$(MAKE) wipe; \
+		$(MAKE) clean; \
 		$(CD) ..; \
 	done );
 	@$(RM) $(RMFLAGS) $(WIPE_LIBS) *.o *~ core 

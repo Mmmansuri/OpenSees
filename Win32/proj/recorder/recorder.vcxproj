@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
       <Configuration>Debug</Configuration>
@@ -14,17 +14,18 @@
     <ProjectGuid>{D5A37082-DB5D-6EBD-A103-CF73C7FBB0C4}</ProjectGuid>
     <SccProjectName />
     <SccLocalPath />
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
-    <UseOfMfc>false</UseOfMfc>
     <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v142</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
-    <UseOfMfc>false</UseOfMfc>
     <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v142</PlatformToolset>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
@@ -46,7 +47,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
       <InlineFunctionExpansion>OnlyExplicitInline</InlineFunctionExpansion>
-      <AdditionalIncludeDirectories>..\..\..\src\coordTransformation;..\..\..\src\domain\load;..\..\..\src\api;..\..\..\src\utility;..\..\..\src\actor\message;..\..\..\src\actor\objectBroker;..\..\..\src\modelbuilder\tcl;..\..\..\src\damage;..\..\..\src\domain\pattern;..\..\..\src\system_of_eqn;..\..\..\src\system_of_eqn\linearSOE;..\..\..\src\analysis\integrator;..\..\..\src\material\section\fiber;..\..\..\src\material;..\..\..\src\recorder\response;..\..\..\src\analysis\algorithm;..\..\..\src\analysis\algorithm\equiSolnAlgo;..\..\..\src\handler;..\..\..\src\renderer;..\..\..\src\tcl;..\..\..\src\actor\channel;..\..\..\src\modelbuilder;..\..\..\src\database;..\..\..\src\tagged;..\..\..\src\actor\actor;..\..\..\src\domain\component;..\..\..\src\element;..\..\..\src\element\PFEMElement;..\..\..\src\matrix;..\..\..\src\domain\domain;..\..\..\src;..\..\..\src\recorder;..\..\..\src\domain\node;..\..\..\src\nDarray;..\..\..\src\domain\region;..\..\..\src\domain\constraints;..\..\..\src\element\updatedlagrangianbeamcolumn;..\..\..\src\material\yieldSurface\evolution;..\..\..\src\material\yieldsurface\yieldSurfaceBC;c:\Program Files\tcl;c:\Program Files\tcl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\..\src\coordTransformation;..\..\..\src\domain\load;..\..\..\src\api;..\..\..\src\utility;..\..\..\src\actor\message;..\..\..\src\actor\objectBroker;..\..\..\src\modelbuilder\tcl;..\..\..\src\damage;..\..\..\src\domain\pattern;..\..\..\src\system_of_eqn;..\..\..\src\system_of_eqn\linearSOE;..\..\..\src\analysis\integrator;..\..\..\src\material\section\fiber;..\..\..\src\material;..\..\..\src\recorder\response;..\..\..\src\analysis\algorithm;..\..\..\src\analysis\algorithm\equiSolnAlgo;..\..\..\src\handler;..\..\..\src\renderer;..\..\..\src\tcl;..\..\..\src\actor\channel;..\..\..\src\modelbuilder;..\..\..\src\database;..\..\..\src\tagged;..\..\..\src\tagged\storage;..\..\..\src\actor\actor;..\..\..\src\domain\component;..\..\..\src\element;..\..\..\src\element\PFEMElement;..\..\..\src\matrix;..\..\..\src\domain\domain;..\..\..\src;..\..\..\src\recorder;..\..\..\src\domain\node;..\..\..\src\nDarray;..\..\..\src\domain\region;..\..\..\src\domain\constraints;..\..\..\src\element\updatedlagrangianbeamcolumn;..\..\..\src\material\yieldSurface\evolution;..\..\..\src\material\yieldsurface\yieldSurfaceBC;c:\Program Files (x86)\tcl;c:\Program Files (x86)\tcl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>NDEBUG;WIN32;_LIB;_WGL;_TCL85;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
@@ -67,11 +68,14 @@
       <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <Culture>0x0409</Culture>
     </ResourceCompile>
+    <BuildLog>
+      <Path>.\..\..\obj\recorder\release\$(MSBuildProjectName).log</Path>
+    </BuildLog>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>..\..\..\src\coordTransformation;..\..\..\src\domain\load;..\..\..\src\api;..\..\..\src\utility;..\..\..\src\actor\message;..\..\..\src\actor\objectBroker;..\..\..\src\modelbuilder\tcl;..\..\..\src\damage;..\..\..\src\domain\pattern;..\..\..\src\system_of_eqn;..\..\..\src\system_of_eqn\linearSOE;..\..\..\src\analysis\integrator;..\..\..\src\material\section\fiber;..\..\..\src\material;..\..\..\src\recorder\response;..\..\..\src\analysis\algorithm;..\..\..\src\analysis\algorithm\equiSolnAlgo;..\..\..\src\handler;..\..\..\src\renderer;..\..\..\src\tcl;..\..\..\src\actor\channel;..\..\..\src\modelbuilder;..\..\..\src\database;..\..\..\src\tagged;..\..\..\src\actor\actor;..\..\..\src\domain\component;..\..\..\src\element;..\..\..\src\element\PFEMElement;..\..\..\src\matrix;..\..\..\src\domain\domain;..\..\..\src;..\..\..\src\recorder;..\..\..\src\domain\node;..\..\..\src\nDarray;..\..\..\src\domain\region;..\..\..\src\domain\constraints;..\..\..\src\element\updatedlagrangianbeamcolumn;..\..\..\src\material\yieldSurface\evolution;..\..\..\src\material\yieldsurface\yieldSurfaceBC;c:\Program Files\tcl;c:\Program Files\tcl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\..\src\coordTransformation;..\..\..\src\domain\load;..\..\..\src\api;..\..\..\src\utility;..\..\..\src\actor\message;..\..\..\src\actor\objectBroker;..\..\..\src\modelbuilder\tcl;..\..\..\src\damage;..\..\..\src\domain\pattern;..\..\..\src\system_of_eqn;..\..\..\src\system_of_eqn\linearSOE;..\..\..\src\analysis\integrator;..\..\..\src\material\section\fiber;..\..\..\src\material;..\..\..\src\recorder\response;..\..\..\src\analysis\algorithm;..\..\..\src\analysis\algorithm\equiSolnAlgo;..\..\..\src\handler;..\..\..\src\renderer;..\..\..\src\tcl;..\..\..\src\actor\channel;..\..\..\src\modelbuilder;..\..\..\src\database;..\..\..\src\tagged;..\..\..\src\tagged\storage;..\..\..\src\actor\actor;..\..\..\src\domain\component;..\..\..\src\element;..\..\..\src\element\PFEMElement;..\..\..\src\matrix;..\..\..\src\domain\domain;..\..\..\src;..\..\..\src\recorder;..\..\..\src\domain\node;..\..\..\src\nDarray;..\..\..\src\domain\region;..\..\..\src\domain\constraints;..\..\..\src\element\updatedlagrangianbeamcolumn;..\..\..\src\material\yieldSurface\evolution;..\..\..\src\material\yieldsurface\yieldSurfaceBC;c:\Program Files (x86)\tcl;c:\Program Files (x86)\tcl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_DEBUG;WIN32;_LIB;_WGL;_TCL85;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
@@ -82,7 +86,7 @@
       <BrowseInformation>true</BrowseInformation>
       <WarningLevel>Level3</WarningLevel>
       <SuppressStartupBanner>true</SuppressStartupBanner>
-      <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <CompileAs>Default</CompileAs>
     </ClCompile>
     <Lib>
@@ -93,6 +97,9 @@
       <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <Culture>0x0409</Culture>
     </ResourceCompile>
+    <BuildLog>
+      <Path>.\..\..\obj\recorder\debug\$(MSBuildProjectName).log</Path>
+    </BuildLog>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\SRC\recorder\AlgorithmIncrements.cpp" />
@@ -104,8 +111,10 @@
     <ClCompile Include="..\..\..\SRC\recorder\EnvelopeElementRecorder.cpp" />
     <ClCompile Include="..\..\..\SRC\recorder\EnvelopeNodeRecorder.cpp" />
     <ClCompile Include="..\..\..\SRC\recorder\FilePlotter.cpp" />
+    <ClCompile Include="..\..\..\SRC\recorder\GmshRecorder.cpp" />
     <ClCompile Include="..\..\..\Src\recorder\GSA_Recorder.cpp" />
     <ClCompile Include="..\..\..\SRC\recorder\MaxNodeDispRecorder.cpp" />
+    <ClCompile Include="..\..\..\SRC\recorder\MPCORecorder.cpp" />
     <ClCompile Include="..\..\..\SRC\recorder\NodeRecorder.cpp" />
     <ClCompile Include="..\..\..\SRC\recorder\NormElementRecorder.cpp" />
     <ClCompile Include="..\..\..\SRC\recorder\NormEnvelopeElementRecorder.cpp" />
@@ -119,10 +128,13 @@
     <ClCompile Include="..\..\..\SRC\recorder\response\FiberResponse.cpp" />
     <ClCompile Include="..\..\..\SRC\recorder\response\MaterialResponse.cpp" />
     <ClCompile Include="..\..\..\SRC\recorder\response\Response.cpp" />
+    <ClCompile Include="..\..\..\SRC\recorder\VTK_Recorder.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\SRC\recorder\DamageRecorder.h" />
     <ClInclude Include="..\..\..\SRC\recorder\EnvelopeDriftRecorder.h" />
+    <ClInclude Include="..\..\..\SRC\recorder\GmshRecorder.h" />
+    <ClInclude Include="..\..\..\SRC\recorder\MPCORecorder.h" />
     <ClInclude Include="..\..\..\SRC\recorder\NormElementRecorder.h" />
     <ClInclude Include="..\..\..\SRC\recorder\NormEnvelopeElementRecorder.h" />
     <ClInclude Include="..\..\..\SRC\recorder\PVDRecorder.h" />
@@ -144,6 +156,7 @@
     <ClInclude Include="..\..\..\SRC\recorder\response\FiberResponse.h" />
     <ClInclude Include="..\..\..\SRC\recorder\response\MaterialResponse.h" />
     <ClInclude Include="..\..\..\SRC\recorder\response\Response.h" />
+    <ClInclude Include="..\..\..\SRC\recorder\VTK_Recorder.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

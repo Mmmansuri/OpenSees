@@ -293,12 +293,20 @@ PlateRebarMaterial::getInitialTangent
 void  
 PlateRebarMaterial::Print( OPS_Stream &s, int flag )
 {
-  s << "PlateRebar Material tag: " << this->getTag() << endln ; 
-  s << "using uniaxialmaterials : " << endln ;
-
-  theMat->Print( s, flag ) ;
-
-  return ;
+    if (flag == OPS_PRINT_PRINTMODEL_MATERIAL) {
+        s << "PlateRebar Material tag: " << this->getTag() << endln;
+        s << "angle: " << angle << endln;
+        s << "using uniaxial material: " << endln;
+        theMat->Print(s, flag);
+    }
+    
+    if (flag == OPS_PRINT_PRINTMODEL_JSON) {
+        s << "\t\t\t{";
+        s << "\"name\": \"" << this->getTag() << "\", ";
+        s << "\"type\": \"PlateRebarMaterial\", ";
+        s << "\"angle\": " << angle << ", ";
+        s << "\"material\": \"" << theMat->getTag() << "\"}";
+    }
 }
 
 
@@ -351,7 +359,7 @@ PlateRebarMaterial::recvSelf(int commitTag, Channel &theChannel, FEM_ObjectBroke
 
   int dataTag = this->getDbTag();
 
-  // recv an id containg the tag and associated materials class and db tags
+  // recv an id containing the tag and associated materials class and db tags
   static ID idData(3);
   res = theChannel.recvID(dataTag, commitTag, idData);
   if (res < 0) {

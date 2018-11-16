@@ -125,13 +125,18 @@ class ForceBeamColumn2d: public Element
   int updateParameter(int parameterID, Information &info);
   int activateParameter(int parameterID);
   const Vector &getResistingForceSensitivity(int gradNumber);
-  const Matrix &getKiSensitivity(int gradNumber);
+  const Matrix &getInitialStiffSensitivity(int gradNumber);
   const Matrix &getMassSensitivity(int gradNumber);
   int commitSensitivity(int gradNumber, int numGrads);
   int getResponseSensitivity(int responseID, int gradNumber,
 			     Information &eleInformation);
   // AddingSensitivity:END ///////////////////////////////////////////
-
+#if _DLL
+  BeamIntegration* beamIntegr;
+  int numSections;
+  SectionForceDeformation** sections;          // array of pointers to sections
+  CrdTransf* crdTransf;        // pointer to coordinate tranformation object 
+#endif
  protected:
   void setSectionPointers(int numSections, SectionForceDeformation **secPtrs);
   int getInitialFlexibility(Matrix &fe);
@@ -152,10 +157,12 @@ class ForceBeamColumn2d: public Element
   // internal data
   ID     connectedExternalNodes; // tags of the end nodes
 
-  BeamIntegration *beamIntegr;
+#if !_DLL
+  BeamIntegration* beamIntegr;
   int numSections;
-  SectionForceDeformation **sections;          // array of pointers to sections
-  CrdTransf *crdTransf;        // pointer to coordinate tranformation object 
+  SectionForceDeformation** sections;          // array of pointers to sections
+  CrdTransf* crdTransf;        // pointer to coordinate tranformation object 
+#endif
   // (performs the transformation between the global and basic system)
   double rho;                    // mass density per unit length
   int    maxIters;               // maximum number of local iterations
@@ -168,14 +175,14 @@ class ForceBeamColumn2d: public Element
   Matrix kv;                     // stiffness matrix in the basic system 
   Vector Se;                     // element resisting forces in the basic system
   
-  Matrix kvcommit;               // commited stiffness matrix in the basic system
-  Vector Secommit;               // commited element end forces in the basic system
+  Matrix kvcommit;               // committed stiffness matrix in the basic system
+  Vector Secommit;               // committed element end forces in the basic system
   
   Matrix *fs;                    // array of section flexibility matrices
   Vector *vs;                    // array of section deformation vectors
   Vector *Ssr;                   // array of section resisting force vectors
   
-  Vector *vscommit;              // array of commited section deformation vectors
+  Vector *vscommit;              // array of committed section deformation vectors
   
   enum {maxNumEleLoads = 100};
   enum {NDM = 2};         // dimension of the problem (2d)
@@ -187,6 +194,7 @@ class ForceBeamColumn2d: public Element
   int sizeEleLoads;
   ElementalLoad **eleLoads;
   double *eleLoadFactors;
+  Vector load;
 
   Matrix *Ki;
   

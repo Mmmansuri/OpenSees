@@ -298,45 +298,57 @@ int  ShellDKGQ::revertToStart( )
 //print out element data
 void  ShellDKGQ::Print( OPS_Stream &s, int flag )
 {
-  if (flag == -1) {
-    int eleTag = this->getTag();
-    s << "EL_ShellDKGQ\t" << eleTag << "\t";
-    s << eleTag << "\t" << 1; 
-    s  << "\t" << connectedExternalNodes(0) << "\t" << connectedExternalNodes(1);
-    s  << "\t" << connectedExternalNodes(2) << "\t" << connectedExternalNodes(3) << "\t0.00";
-    s << endln;
-    s << "PROP_3D\t" << eleTag << "\t";
-    s << eleTag << "\t" << 1; 
-    s  << "\t" << -1 << "\tSHELL\t1.0\0.0";
-    s << endln;
-  }  else if (flag < -1) {
+    if (flag == -1) {
+        int eleTag = this->getTag();
+        s << "EL_ShellDKGQ\t" << eleTag << "\t";
+        s << eleTag << "\t" << 1;
+        s << "\t" << connectedExternalNodes(0) << "\t" << connectedExternalNodes(1);
+        s << "\t" << connectedExternalNodes(2) << "\t" << connectedExternalNodes(3) << "\t0.00";
+        s << endln;
+        s << "PROP_3D\t" << eleTag << "\t";
+        s << eleTag << "\t" << 1;
+        s << "\t" << -1 << "\tSHELL\t1.0\0.0";
+        s << endln;
+    }
+     
+    else if (flag < -1) {
+        
+        int counter = (flag + 1) * -1;
+        int eleTag = this->getTag();
+        int i, j;
+        for (i = 0; i < 4; i++) {
+            const Vector &stress = materialPointers[i]->getStressResultant();
 
-     int counter = (flag + 1) * -1;
-     int eleTag = this->getTag();
-     int i,j;
-     for ( i = 0; i < 4; i++ ) {
-       const Vector &stress = materialPointers[i]->getStressResultant();
-       
-       s << "STRESS\t" << eleTag << "\t" << counter << "\t" << i << "\tTOP";
-       for (j=0; j<6; j++)
-	 s << "\t" << stress(j);
-       s << endln;
-     }
-
-   } else {
-    s << endln ;
-    s << "DKGQ Non-Locking Four Node Shell \n" ;
-    s << "Element Number: " << this->getTag() << endln ;
-    s << "Node 1 : " << connectedExternalNodes(0) << endln ;
-    s << "Node 2 : " << connectedExternalNodes(1) << endln ;
-    s << "Node 3 : " << connectedExternalNodes(2) << endln ;
-    s << "Node 4 : " << connectedExternalNodes(3) << endln ;
+            s << "STRESS\t" << eleTag << "\t" << counter << "\t" << i << "\tTOP";
+            for (j = 0; j < 6; j++)
+                s << "\t" << stress(j);
+            s << endln;
+        }
+    }
+     
+    if (flag == OPS_PRINT_CURRENTSTATE) {
+        s << endln;
+        s << "DKGQ Non-Locking Four Node Shell \n";
+        s << "Element Number: " << this->getTag() << endln;
+        s << "Node 1 : " << connectedExternalNodes(0) << endln;
+        s << "Node 2 : " << connectedExternalNodes(1) << endln;
+        s << "Node 3 : " << connectedExternalNodes(2) << endln;
+        s << "Node 4 : " << connectedExternalNodes(3) << endln;
+        
+        s << "Material Information : \n ";
+        materialPointers[0]->Print(s, flag);
+        
+        s << endln;
+    }
     
-    s << "Material Information : \n " ;
-    materialPointers[0]->Print( s, flag ) ;
-    
-    s << endln ;
-  }
+    if (flag == OPS_PRINT_PRINTMODEL_JSON) {
+        s << "\t\t\t{";
+        s << "\"name\": " << this->getTag() << ", ";
+        s << "\"type\": \"ShellDKGQ\", ";
+        s << "\"nodes\": [" << connectedExternalNodes(0) << ", " << connectedExternalNodes(1) << ", ";
+        s << connectedExternalNodes(2) << ", " << connectedExternalNodes(3) << "], ";
+        s << "\"section\": \"" << materialPointers[0]->getTag() << "\"}";
+    }
 }
 
 Response*
@@ -1032,11 +1044,11 @@ ShellDKGQ::formResidAndTangent( int tang_flag )
 
 	static Vector strain(nstress); //strain
 
-	static double shp[3][numnodes]; //shape fuction 2d at a gauss point
+	static double shp[3][numnodes]; //shape function 2d at a gauss point
 
 	static double shpDrill[4][numnodes]; //shape function drilling dof at a gauss point
 
-	static double shpBend[6][12]; //shape fuction - bending part at a gauss point
+	static double shpBend[6][12]; //shape function - bending part at a gauss point
 
 	static Vector residJ(ndf); //nodeJ residual, global coordinates
 
@@ -1599,6 +1611,12 @@ const Matrix&
 	 Bbend(2,1) = shpBend[3][j] + shpBend[4][j];
 	 Bbend(2,2) = shpBend[3][k] + shpBend[4][k];
 
+     /*
+     bugfix: Massimo Petracca 02/26/2020. with the original implementation, the curvatures
+     sent to the section had the wrong sign.
+     */
+     Bbend *= -1.0;
+
 	 return Bbend;
  }
 
@@ -1624,7 +1642,7 @@ ShellDKGQ::shape2d( double ss, double tt,
   //  static double sx[2][2] ;  //have been defined before
 
   for ( i = 0; i < 4; i++ ) {
-      shp[2][i] = ( 0.5 + s[i]*ss )*( 0.5 + t[i]*tt ) ; //shape fuction for 2d isoparametric element
+      shp[2][i] = ( 0.5 + s[i]*ss )*( 0.5 + t[i]*tt ) ; //shape function for 2d isoparametric element
       shp[0][i] = s[i] * ( 0.5 + t[i]*tt ) ; // derivative to isoparametric coordinates 1
       shp[1][i] = t[i] * ( 0.5 + s[i]*ss ) ; // derivative to isoparametric coordinates 1
   } // end for i

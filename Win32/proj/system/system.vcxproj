@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
       <Configuration>Debug</Configuration>
@@ -14,17 +14,18 @@
     <ProjectGuid>{D185C84D-AB56-0F30-1A62-44B095869005}</ProjectGuid>
     <SccProjectName />
     <SccLocalPath />
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
-    <UseOfMfc>false</UseOfMfc>
     <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v142</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
-    <UseOfMfc>false</UseOfMfc>
     <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v142</PlatformToolset>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
@@ -46,7 +47,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>..\..\..\src\api;..\..\..\src\element;..\..\..\src\domain\node;..\..\..\src\domain\component;..\..\..\src\domain\constraints;..\..\..\other\CSPARSE;..\..\..\src\utility;..\..\..\other\MUMPS_4.7.3\libseq;..\..\..\other\SuperLU_5.1.1\SRC;..\..\..\src\system_of_eqn\linearSOE\mumps;..\..\..\src\system_of_eqn\linearSOE\diagonal;..\..\..\src\system_of_eqn\linearSOE;..\..\..\src\system_of_eqn\linearSOE\sparseSYM;..\..\..\src\analysis\integrator;..\..\..\src\analysis\fe_ele;..\..\..\src\analysis\dof_grp;..\..\..\src\system_of_eqn\eigenSOE;..\..\..\src\handler;..\..\..\symSparse;..\..\..\src\analysis\model\simple;..\..\..\src\system_of_eqn\linearSOE\umfGEN;..\..\..\src\system_of_eqn\linearSOE\fullGEN;..\..\..\src\system_of_eqn\linearSOE\sparseGEN;..\..\..\src\system_of_eqn\linearSOE\bandSPD;..\..\..\src\system_of_eqn\linearSOE\bandGEN;..\..\..\src\domain\domain;..\..\..\src\analysis\model;..\..\..\src\actor\objectBroker;..\..\..\src\actor\channel;..\..\..\src\tagged;..\..\..\src\graph\graph;..\..\..\src\system_of_eqn\linearSOE\profileSPD;..\..\..\src;..\..\..\src\matrix;..\..\..\src\actor\actor;..\..\..\src\system_of_eqn;..\..\..\src\nDarray;..\..\..\src\system_of_eqn\linearSOE\itpack;..\..\..\src\system_of_eqn\linearSOE\cg;c:\Program Files\tcl;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\..\src\api;..\..\..\src\element;..\..\..\src\domain\node;..\..\..\src\domain\component;..\..\..\src\domain\constraints;..\..\..\other\CSPARSE;..\..\..\src\utility;..\..\..\other\MUMPS_4.7.3\libseq;..\..\..\other\SuperLU_5.1.1\SRC;..\..\..\src\system_of_eqn\linearSOE\mumps;..\..\..\src\system_of_eqn\linearSOE\diagonal;..\..\..\src\system_of_eqn\linearSOE;..\..\..\src\system_of_eqn\linearSOE\sparseSYM;..\..\..\src\analysis\integrator;..\..\..\src\analysis\fe_ele;..\..\..\src\analysis\dof_grp;..\..\..\src\system_of_eqn\eigenSOE;..\..\..\src\handler;..\..\..\symSparse;..\..\..\src\analysis\model\simple;..\..\..\src\system_of_eqn\linearSOE\umfGEN;..\..\..\src\system_of_eqn\linearSOE\fullGEN;..\..\..\src\system_of_eqn\linearSOE\sparseGEN;..\..\..\src\system_of_eqn\linearSOE\bandSPD;..\..\..\src\system_of_eqn\linearSOE\bandGEN;..\..\..\src\domain\domain;..\..\..\src\analysis\model;..\..\..\src\actor\objectBroker;..\..\..\src\actor\channel;..\..\..\src\tagged;..\..\..\src\graph\graph;..\..\..\src\system_of_eqn\linearSOE\profileSPD;..\..\..\src;..\..\..\src\matrix;..\..\..\src\actor\actor;..\..\..\src\system_of_eqn;..\..\..\src\nDarray;..\..\..\src\system_of_eqn\linearSOE\itpack;..\..\..\src\system_of_eqn\linearSOE\cg;c:\Program Files (x86)\tcl;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;_WIN32;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
@@ -57,7 +58,7 @@
       <BrowseInformation>true</BrowseInformation>
       <WarningLevel>Level3</WarningLevel>
       <SuppressStartupBanner>true</SuppressStartupBanner>
-      <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <CompileAs>Default</CompileAs>
     </ClCompile>
     <Lib>
@@ -68,11 +69,14 @@
       <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <Culture>0x0409</Culture>
     </ResourceCompile>
+    <BuildLog>
+      <Path>.\..\..\obj\system\debug\$(MSBuildProjectName).log</Path>
+    </BuildLog>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
       <InlineFunctionExpansion>OnlyExplicitInline</InlineFunctionExpansion>
-      <AdditionalIncludeDirectories>..\..\..\src\api;..\..\..\src\element;..\..\..\src\domain\node;..\..\..\src\domain\component;..\..\..\src\domain\constraints;..\..\..\other\CSPARSE;..\..\..\src\utility;..\..\..\other\SuperLU_5.1.1\SRC;..\..\..\src\system_of_eqn\linearSOE\diagonal;..\..\..\src\system_of_eqn\linearSOE;..\..\..\src\system_of_eqn\linearSOE\sparseSYM;..\..\..\src\analysis\integrator;..\..\..\src\analysis\fe_ele;..\..\..\src\analysis\dof_grp;..\..\..\src\system_of_eqn\eigenSOE;..\..\..\src\handler;..\..\..\symSparse;..\..\..\src\analysis\model\simple;..\..\..\src\system_of_eqn\linearSOE\umfGEN;..\..\..\src\system_of_eqn\linearSOE\fullGEN;..\..\..\src\system_of_eqn\linearSOE\sparseGEN;..\..\..\src\system_of_eqn\linearSOE\bandSPD;..\..\..\src\system_of_eqn\linearSOE\bandGEN;..\..\..\src\domain\domain;..\..\..\src\analysis\model;..\..\..\src\actor\objectBroker;..\..\..\src\actor\channel;..\..\..\src\tagged;..\..\..\src\graph\graph;..\..\..\src\system_of_eqn\linearSOE\profileSPD;..\..\..\src;..\..\..\src\matrix;..\..\..\src\actor\actor;..\..\..\src\system_of_eqn;..\..\..\src\nDarray;..\..\..\src\system_of_eqn\linearSOE\itpack;..\..\..\src\system_of_eqn\linearSOE\cg;c:\Program Files\tcl;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\..\src\api;..\..\..\src\element;..\..\..\src\domain\node;..\..\..\src\domain\component;..\..\..\src\domain\constraints;..\..\..\other\CSPARSE;..\..\..\src\utility;..\..\..\other\SuperLU_5.1.1\SRC;..\..\..\src\system_of_eqn\linearSOE\diagonal;..\..\..\src\system_of_eqn\linearSOE;..\..\..\src\system_of_eqn\linearSOE\sparseSYM;..\..\..\src\analysis\integrator;..\..\..\src\analysis\fe_ele;..\..\..\src\analysis\dof_grp;..\..\..\src\system_of_eqn\eigenSOE;..\..\..\src\handler;..\..\..\symSparse;..\..\..\src\analysis\model\simple;..\..\..\src\system_of_eqn\linearSOE\umfGEN;..\..\..\src\system_of_eqn\linearSOE\fullGEN;..\..\..\src\system_of_eqn\linearSOE\sparseGEN;..\..\..\src\system_of_eqn\linearSOE\bandSPD;..\..\..\src\system_of_eqn\linearSOE\bandGEN;..\..\..\src\domain\domain;..\..\..\src\analysis\model;..\..\..\src\actor\objectBroker;..\..\..\src\actor\channel;..\..\..\src\tagged;..\..\..\src\graph\graph;..\..\..\src\system_of_eqn\linearSOE\profileSPD;..\..\..\src;..\..\..\src\matrix;..\..\..\src\actor\actor;..\..\..\src\system_of_eqn;..\..\..\src\nDarray;..\..\..\src\system_of_eqn\linearSOE\itpack;..\..\..\src\system_of_eqn\linearSOE\cg;c:\Program Files (x86)\tcl;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
@@ -93,6 +97,9 @@
       <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <Culture>0x0409</Culture>
     </ResourceCompile>
+    <BuildLog>
+      <Path>.\..\..\obj\system\release\$(MSBuildProjectName).log</Path>
+    </BuildLog>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\SRC\system_of_eqn\linearSOE\DomainSolver.cpp" />
@@ -100,6 +107,8 @@
     <ClCompile Include="..\..\..\SRC\system_of_eqn\eigenSOE\EigenSolver.cpp" />
     <ClCompile Include="..\..\..\SRC\system_of_eqn\linearSOE\LinearSOE.cpp" />
     <ClCompile Include="..\..\..\SRC\system_of_eqn\linearSOE\LinearSOESolver.cpp" />
+    <ClCompile Include="..\..\..\SRC\system_of_eqn\linearSOE\sparseGEN\PFEMSolver_Laplace.cpp" />
+    <ClCompile Include="..\..\..\SRC\system_of_eqn\linearSOE\sparseGEN\PFEMSolver_LumpM.cpp" />
     <ClCompile Include="..\..\..\SRC\system_of_eqn\linearSOE\sparseGEN\PFEMSolver_Umfpack.cpp" />
     <ClCompile Include="..\..\..\SRC\system_of_eqn\Solver.cpp" />
     <ClCompile Include="..\..\..\SRC\system_of_eqn\SystemOfEqn.cpp" />
@@ -135,7 +144,6 @@
     <ClCompile Include="..\..\..\SRC\system_of_eqn\linearSOE\fullGEN\FullGenLinSolver.cpp" />
     <ClCompile Include="..\..\..\SRC\system_of_eqn\linearSOE\umfGEN\UmfpackGenLinSOE.cpp" />
     <ClCompile Include="..\..\..\SRC\system_of_eqn\linearSOE\umfGEN\UmfpackGenLinSolver.cpp" />
-    <ClCompile Include="..\..\..\SRC\system_of_eqn\linearSOE\sparseGEN\CuSPSolver.cpp" />
     <ClCompile Include="..\..\..\SRC\system_of_eqn\linearSOE\sparseGEN\PFEMCompressibleLinSOE.cpp" />
     <ClCompile Include="..\..\..\SRC\system_of_eqn\linearSOE\sparseGEN\PFEMCompressibleSolver.cpp" />
     <ClCompile Include="..\..\..\SRC\system_of_eqn\linearSOE\sparseGEN\PFEMLinSOE.cpp" />
@@ -161,6 +169,8 @@
     <ClInclude Include="..\..\..\SRC\system_of_eqn\eigenSOE\EigenSolver.h" />
     <ClInclude Include="..\..\..\SRC\system_of_eqn\linearSOE\LinearSOE.h" />
     <ClInclude Include="..\..\..\SRC\system_of_eqn\linearSOE\LinearSOESolver.h" />
+    <ClInclude Include="..\..\..\SRC\system_of_eqn\linearSOE\sparseGEN\PFEMSolver_Laplace.h" />
+    <ClInclude Include="..\..\..\SRC\system_of_eqn\linearSOE\sparseGEN\PFEMSolver_LumpM.h" />
     <ClInclude Include="..\..\..\SRC\system_of_eqn\linearSOE\sparseGEN\PFEMSolver_Umfpack.h" />
     <ClInclude Include="..\..\..\SRC\system_of_eqn\Solver.h" />
     <ClInclude Include="..\..\..\SRC\system_of_eqn\SystemOfEqn.h" />
@@ -192,7 +202,6 @@
     <ClInclude Include="..\..\..\SRC\system_of_eqn\linearSOE\fullGEN\FullGenLinSolver.h" />
     <ClInclude Include="..\..\..\SRC\system_of_eqn\linearSOE\umfGEN\UmfpackGenLinSOE.h" />
     <ClInclude Include="..\..\..\SRC\system_of_eqn\linearSOE\umfGEN\UmfpackGenLinSolver.h" />
-    <ClInclude Include="..\..\..\SRC\system_of_eqn\linearSOE\sparseGEN\CuSPSolver.h" />
     <ClInclude Include="..\..\..\SRC\system_of_eqn\linearSOE\sparseGEN\PFEMCompressibleLinSOE.h" />
     <ClInclude Include="..\..\..\SRC\system_of_eqn\linearSOE\sparseGEN\PFEMCompressibleSolver.h" />
     <ClInclude Include="..\..\..\SRC\system_of_eqn\linearSOE\sparseGEN\PFEMLinSOE.h" />

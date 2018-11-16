@@ -198,7 +198,7 @@ PlateFromPlaneStressMaterial::setTrialStrain( const Vector &strainFromElement )
   PSStrain(0) = strain(0);
   PSStrain(1) = strain(1);
   PSStrain(2) = strain(2);
-  
+
   return theMat->setTrialStrain(PSStrain);
 }
 
@@ -221,6 +221,7 @@ PlateFromPlaneStressMaterial::getStress( )
   stress(0) = PSStress(0);
   stress(1) = PSStress(1);
   stress(2) = PSStress(2);
+
   stress(3) = gmod * strain(3);
   stress(4) = gmod * strain(4);
 
@@ -245,6 +246,7 @@ PlateFromPlaneStressMaterial::getTangent( )
   tangent(2,0) = PSTangent(2,0);
   tangent(2,1) = PSTangent(2,1);
   tangent(2,2) = PSTangent(2,2);
+
   tangent(3,3) = gmod;
   tangent(4,4) = gmod;
 
@@ -280,11 +282,20 @@ PlateFromPlaneStressMaterial::getInitialTangent
 void  
 PlateFromPlaneStressMaterial::Print( OPS_Stream &s, int flag )
 {
-  s << "PlateFromPlaneStress Material tag: " << this->getTag() << "" << endln ; 
-  s << "using PlaneStress material : " << endln ;
-
-  theMat->Print( s, flag ) ;
-
+    if (flag == OPS_PRINT_PRINTMODEL_MATERIAL) {
+        s << "PlateFromPlaneStress Material tag: " << this->getTag() << "" << endln;
+        s << "G: " << gmod << endln;
+        s << "using PlaneStress material: " << endln;
+        theMat->Print(s, flag);
+    }
+    
+    if (flag == OPS_PRINT_PRINTMODEL_JSON) {
+        s << "\t\t\t{";
+        s << "\"name\": \"" << this->getTag() << "\", ";
+        s << "\"type\": \"PlateFromPlaneStressMaterial\", ";
+        s << "\"G\": " << gmod << ", ";
+        s << "\"material\": \"" << theMat->getTag() << "\"}";
+    }
 }
 
 
@@ -337,7 +348,7 @@ PlateFromPlaneStressMaterial::recvSelf(int commitTag, Channel &theChannel, FEM_O
 
   int dataTag = this->getDbTag();
 
-  // recv an id containg the tag and associated materials class and db tags
+  // recv an id containing the tag and associated materials class and db tags
   static ID idData(3);
   res = theChannel.recvID(dataTag, commitTag, idData);
   if (res < 0) {

@@ -1070,12 +1070,25 @@ SSPbrickUP::displaySelf(Renderer &theViewer, int displayMode, float fact, const 
 void
 SSPbrickUP::Print(OPS_Stream &s, int flag)
 {
-	opserr << "SSPbrickUP, element id:  " << this->getTag() << endln;
-	opserr << "   Connected external nodes:  ";
-	for (int i = 0; i < SBUP_NUM_NODE; i++) {
-		opserr << mExternalNodes(i) << " ";
-	}
-	return;
+    if (flag == OPS_PRINT_CURRENTSTATE) {
+        opserr << "SSPbrickUP, element id:  " << this->getTag() << endln;
+        opserr << "   Connected external nodes:  ";
+        for (int i = 0; i < SBUP_NUM_NODE; i++) {
+            opserr << mExternalNodes(i) << " ";
+        }
+    }
+    
+    if (flag == OPS_PRINT_PRINTMODEL_JSON) {
+        s << "\t\t\t{";
+        s << "\"name\": " << this->getTag() << ", ";
+        s << "\"type\": \"SSPbrickUP\", ";
+        s << "\"nodes\": [" << mExternalNodes(0) << ", ";
+        for (int i = 1; i < 6; i++)
+            s << mExternalNodes(i) << ", ";
+        s << mExternalNodes(7) << "], ";
+        s << "\"bodyForces\": [" << b[0] << ", " << b[1] << ", " << b[2] << "], ";
+        s << "\"material\": \"" << theMaterial->getTag() << "\"}";
+    }
 }
 
 Response*
@@ -1111,19 +1124,6 @@ SSPbrickUP::setParameter(const char **argv, int argc, Parameter &param)
 	} else if (strcmp(argv[0],"zPerm") == 0) {
         // permeability in direction 3
     	return param.addObject(6, this);
-
-    // now check for material parameters
-	} else if ((strstr(argv[0],"material") != 0) && (strcmp(argv[0],"materialState") != 0)) {
-
-    	if (argc < 3) {
-      		return -1;
-		}
-    	int pointNum = atoi(argv[1]);
-    	if (pointNum > 0 && pointNum <= 4) {
-      		return theMaterial->setParameter(&argv[2], argc-2, param);
-    	} else {
-      		return -1;
-		}
   	} else {
         // default is to call setParameter in the material
     	int matRes = res;
@@ -1313,7 +1313,7 @@ SSPbrickUP::GetStab(void)
 	z(6) = mNodeCrd(2,6);
 	z(7) = mNodeCrd(2,7);
 
-	// define coefficent terms for jacobian determinant
+	// define coefficient terms for jacobian determinant
     double 	a1 = x^xi;
     double 	a2 = x^et;
     double 	a3 = x^ze;

@@ -164,15 +164,18 @@ DistHingeIntegration::setParameter(const char **argv, int argc,
   if (argc < 1)
     return -1;
 
-  if (strcmp(argv[0],"lpI") == 0)
+  if (strcmp(argv[0],"lpI") == 0) {
+    param.setValue(lpI);
     return param.addObject(1, this);
-
-  if (strcmp(argv[0],"lpJ") == 0)
+  }
+  if (strcmp(argv[0],"lpJ") == 0) {
+    param.setValue(lpJ);
     return param.addObject(2, this);
-
-  if (strcmp(argv[0],"lp") == 0)
+  }
+  if (strcmp(argv[0],"lp") == 0) {
+    param.setValue(lpI);
     return param.addObject(3, this);
-
+  }
   return -1;
 }
 
@@ -205,13 +208,21 @@ DistHingeIntegration::activateParameter(int paramID)
 void
 DistHingeIntegration::Print(OPS_Stream &s, int flag)
 {
-  s << "DistHinge" << endln;
-  s << " lpI = " << lpI;
-  s << " lpJ = " << lpJ << endln;
-
-  beamInt->Print(s, flag);
-
-  return;
+	if (flag == OPS_PRINT_PRINTMODEL_JSON) {
+		s << "{\"type\": \"DistHinge\", ";
+		s << "\"lpI\": " << lpI << ", ";
+		s << "\"lpJ\": " << lpJ << ", ";
+		s << "\"integration\": ";
+		beamInt->Print(s, flag);
+		s << "}";
+	}
+	
+	else {
+		s << "DistHinge" << endln;
+		s << " lpI = " << lpI;
+		s << " lpJ = " << lpJ << endln;
+		beamInt->Print(s, flag);
+	}
 }
 
 void 

@@ -183,7 +183,7 @@ public:
     int            updateParameter          (int parameterID, Information &info);
 	int            activateParameter        (int parameterID);
 	const Vector & getStressSensitivity     (int gradNumber, bool conditional);
-	int            commitSensitivity        (Vector & strainGradient, int gradNumber, int numGrads);
+	int            commitSensitivity        (const Vector & strainGradient, int gradNumber, int numGrads);
 
 
     void       setUpSurfacesSensitivity(int GradNumber);
@@ -224,10 +224,10 @@ private:
 	static T2Vector dStrainRate;
 	static T2Vector dContactStress;
 
-// uncommited conditional sensitivity
+// uncommitted conditional sensitivity
 	double * dMultiSurfaceCenter;
 
-// commited unconditional sensitivity
+// committed unconditional sensitivity
 
 	double * dCommittedMultiSurfaceSize;
 //	double * dCommittedMultiSurfaceElastPlastModul;

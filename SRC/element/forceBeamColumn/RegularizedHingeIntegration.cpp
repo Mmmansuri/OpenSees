@@ -149,24 +149,30 @@ RegularizedHingeIntegration::setParameter(const char **argv, int argc,
   if (argc < 1)
     return -1;
 
-  if (strcmp(argv[0],"lpI") == 0)
+  if (strcmp(argv[0],"lpI") == 0) {
+    param.setValue(lpI);
     return param.addObject(1, this);
-
-  if (strcmp(argv[0],"lpJ") == 0)
+  }
+  if (strcmp(argv[0],"lpJ") == 0) {
+    param.setValue(lpJ);
     return param.addObject(2, this);
-
-  if (strcmp(argv[0],"lp") == 0)
+  }
+  if (strcmp(argv[0],"lp") == 0) {
+    param.setValue(lpI);
     return param.addObject(3, this);
-
-  if (strcmp(argv[0],"zetaI") == 0)
+  }
+  if (strcmp(argv[0],"zetaI") == 0) {
+    param.setValue(epsI);
     return param.addObject(4, this);
-
-  if (strcmp(argv[0],"zetaJ") == 0)
+  }
+  if (strcmp(argv[0],"zetaJ") == 0) {
+    param.setValue(epsJ);
     return param.addObject(5, this);
-
-  if (strcmp(argv[0],"zeta") == 0)
+  }
+  if (strcmp(argv[0],"zeta") == 0) {
+    param.setValue(epsI);
     return param.addObject(6, this);
-
+  }
   return -1;
 }
 
@@ -375,13 +381,25 @@ RegularizedHingeIntegration::recvSelf(int cTag, Channel &theChannel,
 void
 RegularizedHingeIntegration::Print(OPS_Stream &s, int flag)
 {
-  s << "RegularizedHinge" << endln;
-  s << " lpI = " << lpI;
-  s << " lpJ = " << lpJ << endln;
-  s << " epsI = " << epsI;
-  s << " epsJ = " << epsJ << endln;
-
-  beamInt->Print(s, flag);
+	if (flag == OPS_PRINT_PRINTMODEL_JSON) {
+		s << "{\"type\": \"RegularizedHinge\", ";
+		s << "\"lpI\": " << lpI << ", ";
+		s << "\"lpJ\": " << lpJ << ", ";
+		s << "\"epsI\": " << epsI << ", ";
+		s << "\"epsJ\": " << epsJ << ", ";
+		s << "\"integration\": ";
+		beamInt->Print(s, flag);
+		s << "}";
+	}
+	
+	else {
+		s << "RegularizedHinge" << endln;
+		s << " lpI = " << lpI;
+		s << " lpJ = " << lpJ << endln;
+		s << " epsI = " << epsI;
+		s << " epsJ = " << epsJ << endln;
+		beamInt->Print(s, flag);
+	}
 
   return;
 }

@@ -17,7 +17,7 @@
 **   Filip C. Filippou (filippou@ce.berkeley.edu)                     **
 **                                                                    **
 ** ****************************************************************** */
-                                                                        
+
 // $Revision: 1.0 $
 // $Date: 2015-11-12 $
 // Save all data into paraview format
@@ -35,9 +35,9 @@
 #include <Matrix.h>
 #include <classTags.h>
 #include <NodeIter.h>
-#include <BackgroundMesh.h>
-
-extern BackgroundMesh& OPS_GetBackgroundMesh();
+#include <BackgroundDef.h>
+#include <Particle.h>
+#include <ParticleGroup.h>
 
 std::map<int,PVDRecorder::VtkType> PVDRecorder::vtktypes;
 
@@ -49,8 +49,6 @@ void* OPS_PVDRecorder()
 	return 0;
     }
 
-    PVDRecorder::setVTKType();
-
     // filename
     const char* name = OPS_GetString();
 
@@ -60,41 +58,50 @@ void* OPS_PVDRecorder()
     int precision = 10;
     PVDRecorder::NodeData nodedata;
     std::vector<PVDRecorder::EleData> eledata;
+    double dT = 0.0;
     while(numdata > 0) {
-	std::string type = OPS_GetString();
-	if(type == "disp") {
+	const char* type = OPS_GetString();
+	if(strcmp(type, "disp") == 0) {
 	    nodedata.disp = true;
-	} else if(type=="vel") {
+	} else if(strcmp(type, "vel") == 0) {
 	    nodedata.vel = true;
-	} else if(type=="accel") {
+	} else if(strcmp(type, "accel") == 0) {
 	    nodedata.accel = true;
-	} else if(type=="incrDisp") {
+	} else if(strcmp(type, "incrDisp") == 0) {
 	    nodedata.incrdisp = true;
-	} else if(type=="reaction") {
+	} else if(strcmp(type, "reaction") == 0) {
 	    nodedata.reaction = true;
-	} else if(type=="pressure") {
+	} else if(strcmp(type, "pressure") == 0) {
 	    nodedata.pressure = true;
-	} else if(type=="unbalancedLoad") {
+	} else if(strcmp(type, "unbalancedLoad") == 0) {
 	    nodedata.unbalanced = true;
-	} else if(type=="mass") {
+	} else if(strcmp(type, "mass") == 0) {
 	    nodedata.mass = true;
-	} else if(type=="eigen") {
+	} else if(strcmp(type, "eigen") == 0) {
 	    numdata = OPS_GetNumRemainingInputArgs();
 	    if(numdata < 1) {
 		opserr<<"WARNING: eigen needs 'numEigenvector'\n";
 		return 0;
 	    }
 	    numdata = 1;
-	    if(OPS_GetIntInput(&numdata,&nodedata.numeigen) < 0) return 0;
-	} else if(type=="-precision") {
+	    if(OPS_GetIntInput(&numdata,&nodedata.numeigen) < 0) {
+		opserr << "WARNING: failed to read numeigen\n";
+		return 0;
+	    }
+
+	} else if(strcmp(type, "-precision") == 0) {
 	    numdata = OPS_GetNumRemainingInputArgs();
 	    if(numdata < 1) {
 		opserr<<"WARNING: needs precision \n";
 		return 0;
 	    }
 	    numdata = 1;
-	    if(OPS_GetIntInput(&numdata,&precision) < 0) return 0;
-	} else if(type=="eleResponse") {
+	    if(OPS_GetIntInput(&numdata,&precision) < 0) {
+		opserr << "WARNING: failed to read precision\n";
+		return 0;
+	    }
+
+	} else if(strcmp(type, "eleResponse") == 0) {
 	    numdata = OPS_GetNumRemainingInputArgs();
 	    if(numdata < 1) {
 		opserr<<"WANRING: elementResponse needs 'argc','argv'\n";
@@ -107,30 +114,67 @@ void* OPS_PVDRecorder()
 		edata[i] = OPS_GetString();
 	    }
 	    eledata.push_back(edata);
+	} else if(strcmp(type, "-dT") == 0) {
+	    numdata = OPS_GetNumRemainingInputArgs();
+	    if(numdata < 1) {
+		opserr<<"WARNING: needs dT \n";
+		return 0;
+	    }
+	    numdata = 1;
+	    if(OPS_GetDoubleInput(&numdata,&dT) < 0) {
+		opserr << "WARNING: failed to read dT\n";
+		return 0;
+	    }
+	    if (dT < 0) dT = 0;
 	}
 	numdata = OPS_GetNumRemainingInputArgs();
     }
 
     // create recorder
-    return new PVDRecorder(name,nodedata,eledata,indent,precision);
+    return new PVDRecorder(name,nodedata,eledata,indent,precision,dT);
 }
 
 PVDRecorder::PVDRecorder(const char *name, const NodeData& ndata,
-			 const std::vector<EleData>& edata, int ind, int pre)
+			 const std::vector<EleData>& edata, int ind, int pre,
+			 double dt)
     :Recorder(RECORDER_TAGS_PVDRecorder), indentsize(ind), precision(pre),
-     indentlevel(0), filename(name),
+     indentlevel(0), pathname(), basename(),
      timestep(), timeparts(), theFile(), quota('\"'), parts(),
-     nodedata(ndata), eledata(edata), theDomain(0), partnum()
+     nodedata(ndata), eledata(edata), theDomain(0), partnum(),
+     dT(dt), nextTime(0.0)
+{
+    PVDRecorder::setVTKType();
+    getfilename(name);
+}
+
+PVDRecorder::PVDRecorder()
+    :Recorder(RECORDER_TAGS_PVDRecorder)
 {
 }
+
 
 PVDRecorder::~PVDRecorder()
 {
 }
 
+// PVD
+// part 0 - all nodes
+// part 1 - all particles
+// part n - element type n
 int
 PVDRecorder::record(int ctag, double timestamp)
 {
+    if (dT>0 && nextTime>timestamp) {
+	return 0;
+    }
+
+    if (dT > 0) {
+	nextTime = timestamp+dT;
+    }
+
+    if(precision==0)
+        return 0;
+
     // get current time
     timestep.push_back(timestamp);
 
@@ -169,7 +213,7 @@ PVDRecorder::pvd()
 {
     // open pvd file
     theFile.close();
-    std::string pvdname = filename+".pvd";
+    std::string pvdname = pathname+basename+".pvd";
 
     theFile.open(pvdname.c_str(), std::ios::trunc|std::ios::out);
     if(theFile.fail()) {
@@ -200,7 +244,8 @@ PVDRecorder::pvd()
 	    theFile<<"<DataSet timestep="<<quota<<t<<quota;
 	    theFile<<" group="<<quota<<quota;
 	    theFile<<" part="<<quota<<partno(j)<<quota;
-	    theFile<<" file="<<quota<<filename.c_str()<<'/'<<filename.c_str()<<"_T"<<t<<"_P";
+	    theFile<<" file="<<quota<<basename.c_str();
+	    theFile<<"/"<<basename.c_str()<<"_T"<<t<<"_P";
 	    theFile<<partno(j)<<".vtu"<<quota;
 	    theFile<<"/>\n";
 	}
@@ -224,6 +269,10 @@ PVDRecorder::pvd()
 int
 PVDRecorder::vtu()
 {
+    if (theDomain == 0) {
+	opserr << "WARNING: failed to get domain -- PVDRecorder::vtu\n";
+	return -1;
+    }
     // get node ndf
     NodeIter& theNodes = theDomain->getNodes();
     Node* theNode = 0;
@@ -236,24 +285,36 @@ PVDRecorder::vtu()
     if (nodendf < 3) {
 	nodendf = 3;
     }
-    
+
     // get parts
     this->getParts();
 
-    // part 0
-    ID partno(0, (int)parts.size()+2);
+    // get background mesh
+    VInt gtags;
+    TaggedObjectIter& meshes = OPS_getAllMesh();
+    Mesh* mesh = 0;
+    while((mesh = dynamic_cast<Mesh*>(meshes())) != 0) {
+	ParticleGroup* group = dynamic_cast<ParticleGroup*>(mesh);
+	if (group == 0) {
+	    continue;
+	}
+        gtags.push_back(group->getTag());
+    }
+
+
+    // part 0: all nodes
+    ID partno(0, (int)parts.size()+(int)gtags.size()+1);
     partno[0] = 0;
     if (this->savePart0(nodendf) < 0) {
-	return -1;
+        return -1;
     }
-    
-    // particle part
-    BackgroundMesh& background = OPS_GetBackgroundMesh();
-    if (background.numParticleGroups() > 0) {
-	partno[1] = 1;
-	if (this->savePartParticle(nodendf) < 0) {
-	    return -1;
-	}
+
+    // particle parts
+    for (int i=0; i<(int)gtags.size(); ++i) {
+        partno[1+i] = 1+i;
+        if (this->savePartParticle(1+i, gtags[i],nodendf) < 0) {
+            return -1;
+        }
     }
 
     // save other parts
@@ -268,12 +329,12 @@ PVDRecorder::vtu()
 	if(this->savePart(no,it->first,nodendf) < 0) return -1;
     }
 
-    
+
     timeparts.push_back(partno);
-    
+
     // clear parts
     parts.clear();
-    
+
     return 0;
 }
 
@@ -284,7 +345,7 @@ PVDRecorder::getParts()
 	opserr<<"WARNING: setDomain has not been called -- PVDRecorder\n";
 	return;
     }
-    
+
     ElementIter* eiter = &(theDomain->getElements());
     Element* theEle = 0;
     while((theEle = (*eiter)()) != 0) {
@@ -301,7 +362,7 @@ PVDRecorder::savePart0(int nodendf)
 	opserr<<"WARNING: setDomain has not been called -- PVDRecorder\n";
 	return -1;
     }
-    
+
     // get time and part
     std::stringstream ss;
     ss.precision(precision);
@@ -309,10 +370,10 @@ PVDRecorder::savePart0(int nodendf)
     ss << 0 << ' ' << timestep.back();
     std::string stime, spart;
     ss >> spart >> stime;
-    
+
     // open file
     theFile.close();
-    std::string vtuname = filename+'/'+filename+"_T"+stime+"_P"+spart+".vtu";
+    std::string vtuname = pathname+basename+"/"+basename+"_T"+stime+"_P"+spart+".vtu";
     theFile.open(vtuname.c_str(), std::ios::trunc|std::ios::out);
     if(theFile.fail()) {
 	opserr<<"WARNING: Failed to open file "<<vtuname.c_str()<<"\n";
@@ -358,7 +419,7 @@ PVDRecorder::savePart0(int nodendf)
     this->indent();
     theFile<<"<Piece NumberOfPoints="<<quota<<(int)nodes.size()<<quota;
     theFile<<" NumberOfCells="<<quota<<1<<quota<<">\n";
-        
+
     // points
     this->incrLevel();
     this->indent();
@@ -489,9 +550,10 @@ PVDRecorder::savePart0(int nodendf)
 
     // node displacement
     if(nodedata.disp) {
-	this->indent();
+	// all displacement
+    this->indent();
 	theFile<<"<DataArray type="<<quota<<"Float32"<<quota;
-	theFile<<" Name="<<quota<<"Displacement"<<quota;
+	theFile<<" Name="<<quota<<"AllDisplacement"<<quota;
 	theFile<<" NumberOfComponents="<<quota<<nodendf<<quota;
 	theFile<<" format="<<quota<<"ascii"<<quota<<">\n";
 	this->incrLevel();
@@ -500,6 +562,29 @@ PVDRecorder::savePart0(int nodendf)
 	    this->indent();
 	    for(int j=0; j<nodendf; j++) {
 		if(j < vel.Size()) {
+		    theFile<<vel(j)<<' ';
+		} else {
+		    theFile<<0.0<<' ';
+		}
+	    }
+	    theFile<<std::endl;
+	}
+	this->decrLevel();
+	this->indent();
+	theFile<<"</DataArray>\n";
+
+    // displacement
+    this->indent();
+	theFile<<"<DataArray type="<<quota<<"Float32"<<quota;
+	theFile<<" Name="<<quota<<"Displacement"<<quota;
+	theFile<<" NumberOfComponents="<<quota<<3<<quota;
+	theFile<<" format="<<quota<<"ascii"<<quota<<">\n";
+	this->incrLevel();
+	for(int i=0; i<(int)nodes.size(); i++) {
+	    const Vector& vel = nodes[i]->getTrialDisp();
+	    this->indent();
+	    for(int j=0; j<3; j++) {
+		if(j < vel.Size() && j < nodes[i]->getCrds().Size()) {
 		    theFile<<vel(j)<<' ';
 		} else {
 		    theFile<<0.0<<' ';
@@ -607,7 +692,7 @@ PVDRecorder::savePart0(int nodendf)
 	this->indent();
 	theFile<<"</DataArray>\n";
     }
-    
+
     // node unbalanced load
     if(nodedata.unbalanced) {
 	this->indent();
@@ -733,24 +818,24 @@ PVDRecorder::savePart0(int nodendf)
 }
 
 int
-PVDRecorder::savePartParticle(int nodendf)
+PVDRecorder::savePartParticle(int pno, int bgtag, int nodendf)
 {
     if (theDomain == 0) {
 	opserr<<"WARNING: setDomain has not been called -- PVDRecorder\n";
 	return -1;
     }
-    
+
     // get time and part
     std::stringstream ss;
     ss.precision(precision);
     ss << std::scientific;
-    ss << 1 << ' ' << timestep.back();
+    ss << pno << ' ' << timestep.back();
     std::string stime, spart;
     ss >> spart >> stime;
-    
+
     // open file
     theFile.close();
-    std::string vtuname = filename+'/'+filename+"_T"+stime+"_P"+spart+".vtu";
+    std::string vtuname = pathname+basename+"/"+basename+"_T"+stime+"_P"+spart+".vtu";
     theFile.open(vtuname.c_str(), std::ios::trunc|std::ios::out);
     if(theFile.fail()) {
 	opserr<<"WARNING: Failed to open file "<<vtuname.c_str()<<"\n";
@@ -769,17 +854,17 @@ PVDRecorder::savePartParticle(int nodendf)
     this->indent();
     theFile<<"<UnstructuredGrid>\n";
 
-    // get all particles
-    std::vector<Particle*> particles;
-    BackgroundMesh& background = OPS_GetBackgroundMesh();
-    for(int i=0; i<background.numParticleGroups(); i++) {
-	ParticleGroup* group = background.getParticleGroup(i);
-	if(group == 0) continue;
-	for(int j=0; j<group->numParticles(); j++) {
-	    Particle* p = group->getParticle(j);
-	    if(p == 0) continue;
-	    particles.push_back(p);
-	}
+    // get particles in group
+    VParticle particles;
+    ParticleGroup* group = dynamic_cast<ParticleGroup*>(OPS_getMesh(bgtag));
+    if (group == 0) {
+        opserr << "WARNING: particle group "<<bgtag<<"doesn't exist\n";
+        return -1;
+    }
+    for(int j=0; j<group->numParticles(); j++) {
+	Particle* p = group->getParticle(j);
+	if(p == 0) continue;
+	particles.push_back(p);
     }
 
     // Piece
@@ -787,7 +872,7 @@ PVDRecorder::savePartParticle(int nodendf)
     this->indent();
     theFile<<"<Piece NumberOfPoints="<<quota<<(int)particles.size()<<quota;
     theFile<<" NumberOfCells="<<quota<<1<<quota<<">\n";
-        
+
     // points
     this->incrLevel();
     this->indent();
@@ -804,11 +889,11 @@ PVDRecorder::savePartParticle(int nodendf)
     // points coordinates
     this->incrLevel();
     for(int i=0; i<(int)particles.size(); i++) {
-	const Vector& crds = particles[i]->getCrds();
+	const VDouble& crds = particles[i]->getCrds();
 	this->indent();
 	for(int j=0; j<3; j++) {
-	    if(j < crds.Size()) {
-		theFile<<crds(j)<<' ';
+	    if(j < (int)crds.size()) {
+		theFile<<crds[j]<<' ';
 	    } else {
 		theFile<<0.0<<' ';
 	    }
@@ -900,11 +985,11 @@ PVDRecorder::savePartParticle(int nodendf)
 	theFile<<" format="<<quota<<"ascii"<<quota<<">\n";
 	this->incrLevel();
 	for(int i=0; i<(int)particles.size(); i++) {
-	    const Vector& vel = particles[i]->getVel();
+	    const VDouble& vel = particles[i]->getVel();
 	    this->indent();
 	    for(int j=0; j<nodendf; j++) {
-		if(j < vel.Size()) {
-		    theFile<<vel(j)<<' ';
+		if(j < (int)vel.size()) {
+		    theFile<<vel[j]<<' ';
 		} else {
 		    theFile<<0.0<<' ';
 		}
@@ -1012,7 +1097,7 @@ PVDRecorder::savePartParticle(int nodendf)
 	this->indent();
 	theFile<<"</DataArray>\n";
     }
-    
+
     // node unbalanced load
     if(nodedata.unbalanced) {
 	this->indent();
@@ -1125,7 +1210,7 @@ PVDRecorder::savePart(int partno, int ctag, int nodendf)
 	opserr<<"WARNING: setDomain has not been called -- PVDRecorder\n";
 	return -1;
     }
-    
+
     // get time and part
     std::stringstream ss;
     ss.precision(precision);
@@ -1133,10 +1218,10 @@ PVDRecorder::savePart(int partno, int ctag, int nodendf)
     ss << partno << ' ' << timestep.back();
     std::string stime, spart;
     ss >> spart >> stime;
-    
+
     // open file
     theFile.close();
-    std::string vtuname = filename+'/'+filename+"_T"+stime+"_P"+spart+".vtu";
+    std::string vtuname = pathname+basename+"/"+basename+"_T"+stime+"_P"+spart+".vtu";
     theFile.open(vtuname.c_str(), std::ios::trunc|std::ios::out);
     if(theFile.fail()) {
 	opserr<<"WARNING: Failed to open file "<<vtuname.c_str()<<"\n";
@@ -1170,9 +1255,19 @@ PVDRecorder::savePart(int partno, int ctag, int nodendf)
 	const ID& elenodes = eles[i]->getExternalNodes();
 	if(numelenodes == 0) {
 	    numelenodes = elenodes.Size();
-	    if(ctag==ELE_TAG_PFEMElement2D||ctag==ELE_TAG_PFEMElement2DCompressible||
-	       ctag==ELE_TAG_PFEMElement2DBubble||ctag==ELE_TAG_PFEMElement2Dmini) {
+	    if(ctag==ELE_TAG_PFEMElement2D||
+	       ctag==ELE_TAG_PFEMElement2DCompressible||
+	       ctag==ELE_TAG_PFEMElement2DBubble||
+	       ctag==ELE_TAG_PFEMElement2Dmini ||
+	       ctag==ELE_TAG_MINI ||
+	       ctag==ELE_TAG_PFEMElement2DQuasi) {
 		numelenodes = 3;
+		increlenodes = 2;
+	    } else if (ctag==ELE_TAG_TaylorHood2D) {
+		numelenodes = 6;
+		increlenodes = 1;
+	    } else if (ctag==ELE_TAG_PFEMElement3DBubble) {
+		numelenodes = 4;
 		increlenodes = 2;
 	    }
 	}
@@ -1186,7 +1281,7 @@ PVDRecorder::savePart(int partno, int ctag, int nodendf)
     this->indent();
     theFile<<"<Piece NumberOfPoints="<<quota<<ndtags.Size()<<quota;
     theFile<<" NumberOfCells="<<quota<<eletags.Size()<<quota<<">\n";
-        
+
     // points
     this->incrLevel();
     this->indent();
@@ -1243,8 +1338,20 @@ PVDRecorder::savePart(int partno, int ctag, int nodendf)
     for(int i=0; i<eletags.Size(); i++) {
 	const ID& elenodes = eles[i]->getExternalNodes();
 	this->indent();
-	for(int j=0; j<numelenodes; j++) {
-	    theFile<<ndtags.getLocationOrdered(elenodes(j*increlenodes))<<' ';
+	if (ctag==ELE_TAG_TaylorHood2D) {
+
+	    // for 2nd order element, the order of mid nodes
+	    // is different to VTK
+	    int vtkOrder[] = {0,1,2,5,3,4};
+	    for(int j=0; j<numelenodes; j++) {
+		theFile<<ndtags.getLocationOrdered(elenodes(vtkOrder[j]*increlenodes))<<' ';
+	    }
+
+	} else {
+
+	    for(int j=0; j<numelenodes; j++) {
+		theFile<<ndtags.getLocationOrdered(elenodes(j*increlenodes))<<' ';
+	    }
 	}
 	theFile<<std::endl;
     }
@@ -1338,9 +1445,10 @@ PVDRecorder::savePart(int partno, int ctag, int nodendf)
 
     // node displacement
     if(nodedata.disp) {
-	this->indent();
+	// all displacement
+    this->indent();
 	theFile<<"<DataArray type="<<quota<<"Float32"<<quota;
-	theFile<<" Name="<<quota<<"Displacement"<<quota;
+	theFile<<" Name="<<quota<<"AllDisplacement"<<quota;
 	theFile<<" NumberOfComponents="<<quota<<nodendf<<quota;
 	theFile<<" format="<<quota<<"ascii"<<quota<<">\n";
 	this->incrLevel();
@@ -1349,6 +1457,29 @@ PVDRecorder::savePart(int partno, int ctag, int nodendf)
 	    this->indent();
 	    for(int j=0; j<nodendf; j++) {
 		if(j < vel.Size()) {
+		    theFile<<vel(j)<<' ';
+		} else {
+		    theFile<<0.0<<' ';
+		}
+	    }
+	    theFile<<std::endl;
+	}
+	this->decrLevel();
+	this->indent();
+	theFile<<"</DataArray>\n";
+
+    // displacement
+    this->indent();
+	theFile<<"<DataArray type="<<quota<<"Float32"<<quota;
+	theFile<<" Name="<<quota<<"Displacement"<<quota;
+	theFile<<" NumberOfComponents="<<quota<<3<<quota;
+	theFile<<" format="<<quota<<"ascii"<<quota<<">\n";
+	this->incrLevel();
+	for(int i=0; i<ndtags.Size(); i++) {
+	    const Vector& vel = nodes[i]->getTrialDisp();
+	    this->indent();
+	    for(int j=0; j<3; j++) {
+		if(j < vel.Size() && j < nodes[i]->getCrds().Size()) {
 		    theFile<<vel(j)<<' ';
 		} else {
 		    theFile<<0.0<<' ';
@@ -1456,7 +1587,7 @@ PVDRecorder::savePart(int partno, int ctag, int nodendf)
 	this->indent();
 	theFile<<"</DataArray>\n";
     }
-    
+
     // node unbalanced load
     if(nodedata.unbalanced) {
 	this->indent();
@@ -1825,5 +1956,46 @@ PVDRecorder::setVTKType()
     vtktypes[ELE_TAG_MVLEM] = VTK_POLY_VERTEX;
     vtktypes[ELE_TAG_SFI_MVLEM] = VTK_POLY_VERTEX;
     vtktypes[ELE_TAG_PFEMElement2DFIC] = VTK_TRIANGLE;
+    vtktypes[ELE_TAG_TaylorHood2D] = VTK_QUADRATIC_TRIANGLE;
+    vtktypes[ELE_TAG_PFEMElement2DQuasi] = VTK_TRIANGLE;
+    vtktypes[ELE_TAG_MINI] = VTK_TRIANGLE;
+    vtktypes[ELE_TAG_CatenaryCable] = VTK_LINE;
+    vtktypes[ELE_TAG_FourNodeTetrahedron] = VTK_TETRA;
+    vtktypes[ELE_TAG_PFEMElement3DBubble] = VTK_TETRA;
+    vtktypes[ELE_TAG_TriSurfaceLoad] = VTK_TRIANGLE;
+    vtktypes[ELE_TAG_ShellANDeS] = VTK_TRIANGLE;
+    vtktypes[ELE_TAG_ShellDKGT] = VTK_TRIANGLE;
+    vtktypes[ELE_TAG_ShellNLDKGT] = VTK_TRIANGLE;
+}
 
+void
+PVDRecorder::getfilename(const char* name)
+{
+    // use string
+    std::string fname(name);
+    
+    // no slash at all
+    std::size_t found = fname.find_last_of("/\\");
+    if (found == std::string::npos) {
+	pathname = "./";
+	basename = fname;
+	return;
+    }
+
+    // remove trailing slash
+    if (found == fname.length()-1) {
+	fname = fname.substr(0,fname.length()-1);
+	found = fname.find_last_of("/\\");
+    }
+    
+    // only trailing slash
+    if(found == std::string::npos) {
+	pathname = "./";
+	basename = fname;
+	return;
+    }
+
+    // more slash
+    pathname = fname.substr(0,found+1);
+    basename = fname.substr(found+1);
 }

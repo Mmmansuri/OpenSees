@@ -37,9 +37,8 @@
 #include <Vector.h>
 
  Integrator::Integrator(int clasTag)
-:MovableObject(clasTag)
+     :MovableObject(clasTag), analysisTypeTag(0), SensitivityKey(false)
 {
-SensitivityKey=0;
 }
 
 
@@ -116,27 +115,22 @@ Integrator::sensitivityDomainChanged()
 return 0;
 }
 
+bool
+Integrator::computeSensitivityAtEachIteration()
+{
+  return false ;
+}
 
 bool 
 Integrator::shouldComputeAtEachStep(void)
 {
   return (analysisTypeTag == 1);
 }
-bool
-Integrator::computeSensitivityAtEachIteration()
+
+void
+Integrator::setComputeType(int flag)
 {
-return false ;
+    analysisTypeTag = flag;
 }
-
-// the following function is to activate the sensitivity key, and it will be called in the commands.cpp
-bool
-Integrator::activateSensitivityKey()
-{
-SensitivityKey=true;
-
-return SensitivityKey;
-
-}
-
 
  ////////////////////////Abbas/////////////////////////////////////

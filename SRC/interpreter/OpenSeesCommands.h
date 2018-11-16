@@ -1,23 +1,39 @@
-/* ****************************************************************** **
-**    OpenSees - Open System for Earthquake Engineering Simulation    **
-**          Pacific Earthquake Engineering Research Center            **
-**                                                                    **
-**                                                                    **
-** (C) Copyright 1999, The Regents of the University of California    **
-** All Rights Reserved.                                               **
-**                                                                    **
-** Commercial use of this program without express permission of the   **
-** University of California, Berkeley, is strictly prohibited.  See   **
-** file 'COPYRIGHT'  in main directory for information on usage and   **
-** redistribution,  and for a DISCLAIMER OF ALL WARRANTIES.           **
-**                                                                    **
-** Developed by:                                                      **
-**   Frank McKenna (fmckenna@ce.berkeley.edu)                         **
-**   Gregory L. Fenves (fenves@ce.berkeley.edu)                       **
-**   Filip C. Filippou (filippou@ce.berkeley.edu)                     **
-**                                                                    **
-** ****************************************************************** */
-                                                                        
+/* *****************************************************************************
+Copyright (c) 2015-2017, The Regents of the University of California (Regents).
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this
+   list of conditions and the following disclaimer.
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
+ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+The views and conclusions contained in the software and documentation are those
+of the authors and should not be interpreted as representing official policies,
+either expressed or implied, of the FreeBSD Project.
+
+REGENTS SPECIFICALLY DISCLAIMS ANY WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
+THE SOFTWARE AND ACCOMPANYING DOCUMENTATION, IF ANY, PROVIDED HEREUNDER IS
+PROVIDED "AS IS". REGENTS HAS NO OBLIGATION TO PROVIDE MAINTENANCE, SUPPORT,
+UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
+
+*************************************************************************** */
+
 // Written: Minjie
 
 // Description: all opensees APIs are defined or declared here
@@ -42,12 +58,11 @@
 #include <FEM_ObjectBrokerAllClasses.h>
 #include <PFEMAnalysis.h>
 #include <VariableTimeStepDirectIntegrationAnalysis.h>
-#ifdef _RELIABILITY
-#include <ReliabilityStaticAnalysis.h>
-#include <ReliabilityDirectIntegrationAnalysis.h>
-#endif
 #include <Timer.h>
 #include <SimulationInformation.h>
+#include <elementAPI.h>
+#include <MachineBroker.h>
+#include "OpenSeesReliabilityCommands.h"
 
 class OpenSeesCommands
 {
@@ -58,69 +73,68 @@ public:
 
     DL_Interpreter* getInterpreter();
     Domain* getDomain();
-    
+
     int getNDF() const {return ndf;}
     void setNDF(int n) {ndf = n;}
-    
+
     int getNDM() const {return ndm;}
     void setNDM(int n) {ndm = n;}
 
     void setSOE(LinearSOE* soe);
     LinearSOE* getSOE() {return theSOE;}
-    
+
     void setNumberer(DOF_Numberer* numberer);
     DOF_Numberer* getNumberer() {return theNumberer;}
-    
+
     void setHandler(ConstraintHandler* handler);
     ConstraintHandler* getHandler() {return theHandler;}
-    
+
     void setStaticIntegrator(StaticIntegrator* integrator);
     StaticIntegrator* getStaticIntegrator() {return theStaticIntegrator;}
-    
+
     void setTransientIntegrator(TransientIntegrator* integrator);
     TransientIntegrator* getTransientIntegrator() {return theTransientIntegrator;}
-    
+
     void setAlgorithm(EquiSolnAlgo* algo);
     EquiSolnAlgo* getAlgorithm() {return theAlgorithm;}
-    
+
     void setCTest(ConvergenceTest* test);
     ConvergenceTest* getCTest() {return theTest;}
-    
+
     void setStaticAnalysis();
     StaticAnalysis* getStaticAnalysis() {return theStaticAnalysis;}
-    
+
     int setPFEMAnalysis();
     PFEMAnalysis* getPFEMAnalysis() {return thePFEMAnalysis;}
-    
+
     void setVariableAnalysis();
     VariableTimeStepDirectIntegrationAnalysis*
     getVariableAnalysis() {return theVariableTimeStepTransientAnalysis;}
-    
+
     void setTransientAnalysis();
     DirectIntegrationAnalysis* getTransientAnalysis() {return theTransientAnalysis;}
 
     void setNumEigen(int num) {numEigen = num;}
     int getNumEigen() {return numEigen;}
     EigenSOE* getEigenSOE() {return theEigenSOE;}
-    
+
     void setFileDatabase(const char* filename);
     FE_Datastore* getDatabase() {return theDatabase;}
 
     Timer* getTimer() {return &theTimer;}
     SimulationInformation* getSimulationInformation() {return &theSimulationInfo;}
-    
-#ifdef _RELIABILITY
-    int setReliabilityStaticAnalysis();
-    int setReliabilityTransientAnalysis();
-#endif
-    
+
+    MachineBroker* getMachineBroker() {return theMachineBroker;}
+    Channel** getChannels() { return  theChannels;}
+    int getNumChannels() {return numChannels;}
+
     void wipeAnalysis();
     void wipe();
     int eigen(int typeSolver, double shift,
 	      bool generalizedAlgo, bool findSmallest);
-    
+
 private:
-    
+
     DL_Interpreter* interpreter;
     Domain* theDomain;
     int ndf, ndm;
@@ -145,14 +159,11 @@ private:
     Timer theTimer;
     SimulationInformation theSimulationInfo;
 
-// AddingSensitivity:BEGIN /////////////////////////////////////////////
-#ifdef _RELIABILITY
-    SensitivityAlgorithm *theSensitivityAlgorithm;
-    Integrator *theSensitivityIntegrator;
-    ReliabilityStaticAnalysis* theReliabilityStaticAnalysis;
-    ReliabilityDirectIntegrationAnalysis* theReliabilityTransientAnalysis;
-#endif
-// AddingSensitivity:END ///////////////////////////////////////////////
+    MachineBroker* theMachineBroker;
+    Channel **theChannels;
+    int numChannels;
+
+    OpenSeesReliabilityCommands* reliability;
 
 };
 
@@ -170,8 +181,25 @@ int OPS_getTangent();
 int OPS_getDampTangent();
 int OPS_LimitCurve();
 
+int OPS_hystereticBackbone();
+int OPS_stiffnessDegradation();
+int OPS_strengthDegradation();
+int OPS_unloadingRule();
+
 /* OpenSeesNDMaterialCommands.cpp */
 int OPS_NDMaterial();
+int OPS_updateMaterialStage();
+
+/* OpenSeesFrictionModelCommands.cpp */
+int OPS_FrictionModel();
+
+/* OpenSeesParameterCommands.cpp */
+int OPS_Parameter();
+int OPS_addToParameter();
+int OPS_updateParameter();
+int OPS_getParamTags();
+int OPS_getParamValue();
+int OPS_setParameter();
 
 /* OpenSeesElementCommands.cpp */
 int OPS_Element();
@@ -208,7 +236,6 @@ int OPS_nodeEigenvector();
 int OPS_getTime();
 int OPS_eleResponse();
 int OPS_getLoadFactor();
-int OPS_printModel();
 int OPS_printModelGID();
 int OPS_getCTestNorms();
 int OPS_getCTestIter();
@@ -223,6 +250,7 @@ int OPS_nodeCoord();
 int OPS_setNodeCoord();
 int OPS_updateElementDomain();
 int OPS_eleNodes();
+int OPS_nodeDOFs();
 int OPS_nodeMass();
 int OPS_nodePressure();
 int OPS_nodeBounds();
@@ -242,20 +270,33 @@ int OPS_basicForce();
 int OPS_basicStiffness();
 int OPS_version();
 int OPS_maxOpenFiles();
+int OPS_logFile();
+// Sensitivity:BEGIN /////////////////////////////////////////////
+int OPS_sensNodeDisp();
+int OPS_sensNodeVel();
+int OPS_sensNodeAccel();
+int OPS_sensLambda();
+int OPS_sensSectionForce();
+int OPS_sensNodePressure();
+// Sensitivity:END /////////////////////////////////////////////
 
 /* OpenSeesMiscCommands.cpp */
 int OPS_loadConst();
 int OPS_calculateNodalReactions();
 int OPS_rayleighDamping();
 int OPS_setTime();
+int OPS_setCreep();
 int OPS_removeObject();
 int OPS_addNodalMass();
 int OPS_buildModel();
+int OPS_setNodeDisp();
 int OPS_setNodeVel();
+int OPS_setNodeAccel();
 int OPS_setElementRayleighDampingFactors();
 int OPS_MeshRegion();
 int OPS_peerNGA();
 int OPS_domainChange();
+int OPS_record();
 int OPS_stripOpenSeesXML();
 int OPS_convertBinaryToText();
 int OPS_convertTextToBinary();
@@ -265,6 +306,28 @@ int OPS_RigidDiaphragm();
 int OPS_addElementRayleigh();
 int OPS_mesh();
 int OPS_remesh();
+int OPS_getPID();
+int OPS_getNP();
+int OPS_barrier();
+int OPS_send();
+int OPS_recv();
+int OPS_Bcast();
+int OPS_sdfResponse();
+int OPS_getNumThreads();
+int OPS_setNumThreads();
+int OPS_setStartNodeTag();
+
+// OpenSeesReliabilityCommands.cpp
+int OPS_randomVariable();
+int OPS_getRVTags();
+int OPS_getRVMean();
+int OPS_getRVStdv();
+int OPS_getRVPDF();
+int OPS_getRVCDF();
+int OPS_getRVInverseCDF();
+int OPS_addCorrelate();
+int OPS_probabilityTransformation();
+int OPS_transformUtoX();
 
 /* OpenSeesCommands.cpp */
 int OPS_wipe();
@@ -283,6 +346,7 @@ int OPS_resetModel();
 int OPS_initializeAnalysis();
 int OPS_printA();
 int OPS_printB();
+int OPS_printModel();
 int OPS_Database();
 int OPS_save();
 int OPS_restore();
@@ -291,12 +355,13 @@ int OPS_stopTimer();
 int OPS_modalDamping();
 int OPS_modalDampingQ();
 int OPS_neesMetaData();
-int OPS_neesUpload();
+int OPS_defaultUnits();
 int OPS_totalCPU();
 int OPS_solveCPU();
 int OPS_accelCPU();
 int OPS_numFact();
 int OPS_numIter();
+int* OPS_GetNumEigen();
 int OPS_systemSize();
 
 void* OPS_KrylovNewton();
@@ -306,6 +371,17 @@ void* OPS_SecantNewton();
 void* OPS_PeriodicNewton();
 void* OPS_NewtonLineSearch();
 
+void* OPS_ParallelNumberer();
+void* OPS_ParallelRCM();
+
+void* OPS_ParallelDisplacementControl();
+
+void* OPS_MumpsSolver();
+
+// Sensitivity:BEGIN /////////////////////////////////////////////
+int OPS_computeGradients();
+int OPS_sensitivityAlgorithm();
+// Sensitivity:END /////////////////////////////////////////////
 
 /* Defined in its own class.cpp*/
 int OPS_Node();
@@ -315,7 +391,6 @@ int OPS_EqualDOF_Mixed();
 int OPS_HomogeneousBC_X();
 int OPS_HomogeneousBC_Y();
 int OPS_HomogeneousBC_Z();
-int OPS_BackgroundMesh();
 int OPS_ShallowFoundationGen();
 
 void* OPS_TimeSeriesIntegrator();
@@ -329,7 +404,11 @@ void* OPS_DiagonalDirectSolver();
 void* OPS_SProfileSPDLinSolver();
 void* OPS_PFEMSolver();
 void* OPS_PFEMCompressibleSolver();
+void* OPS_PFEMQuasiSolver();
 void* OPS_PFEMSolver_Umfpack();
+void* OPS_PFEMSolver_Mumps();
+void* OPS_PFEMSolver_Laplace();
+void* OPS_PFEMSolver_LumpM();
 void* OPS_SymSparseLinSolver();
 void* OPS_FullGenLinLapackSolver();
 
@@ -398,6 +477,7 @@ void* OPS_WilsonTheta();
 void* OPS_CentralDifference();
 void* OPS_CentralDifferenceAlternative();
 void* OPS_CentralDifferenceNoDamping();
+void* OPS_Explicitdifference();
 
 void* OPS_LinearAlgorithm();
 void* OPS_NewtonRaphsonAlgorithm();
@@ -405,23 +485,16 @@ void* OPS_ModifiedNewton();
 void* OPS_Broyden();
 void* OPS_BFGS();
 
-
 //////////////////////////////////////////////////////
 
 // commands that changed or added:
-//    pattern section block2d block3d beamIntegration
-//    forceBeamColumn dispBeamColumn timoshenkoBeamColumn
-//    forceBeamColumnCBDI forceBeamColumnCSBDI forceBeamColumnWarping
-//    elasticForceBeamColumnWarping dispBeamColumnNL dispBeamColumnThermal
-//    elasticForceBeamColumn nonlinearBeamColumn dispBeamColumnWithSensitivity
 //
-//    missing : recorder, video, logFile, getNP, getPI, barrier, send, recv, partition,
-//              record, defaultUnits, setParameter, reliability, wipeReliability,
-//              parameter, addToParameter, updateParameter, FiberThermal, FiberInt,
+//    missing : video, partition,
+//              reliability, wipeReliability,
+//              FiberThermal, FiberInt,
 //              UCFiber, TclModelBuilderYS_SectionCommand, yieldSurface_BC,
 //              ysEvolutionModel, plasticMaterial, cyclicModel, damageModel,
-//              FirePattern, PySimple1Gen, TzSimple1Gen, Hfiber, frictionModel,
-//              stiffnessDegradation, unloadingRule, strengthDegradation,
+//              FirePattern, PySimple1Gen, TzSimple1Gen, Hfiber,
 //              hystereticBackbone, updateMaterialStage, updateMaterials,
 //              loadPackage
 #endif

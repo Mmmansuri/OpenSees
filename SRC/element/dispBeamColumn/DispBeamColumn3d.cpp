@@ -87,7 +87,7 @@ void* OPS_DispBeamColumn3d()
     }
 
     // check transf
-    CrdTransf* theTransf = OPS_GetCrdTransf(iData[3]);
+    CrdTransf* theTransf = OPS_getCrdTransf(iData[3]);
     if(theTransf == 0) {
 	opserr<<"coord transfomration not found\n";
 	return 0;
@@ -810,7 +810,7 @@ DispBeamColumn3d::addInertiaLoadToUnbalance(const Vector &accel)
   const Vector &Raccel2 = theNodes[1]->getRV(accel);
   
   if (6 != Raccel1.Size() || 6 != Raccel2.Size()) {
-    opserr << "DispBeamColumn3d::addInertiaLoadToUnbalance matrix and vector sizes are incompatable\n";
+    opserr << "DispBeamColumn3d::addInertiaLoadToUnbalance matrix and vector sizes are incompatible\n";
     return -1;
   }
   
@@ -826,6 +826,7 @@ DispBeamColumn3d::addInertiaLoadToUnbalance(const Vector &accel)
     Q(6) -= m*Raccel2(0);
     Q(7) -= m*Raccel2(1);
     Q(8) -= m*Raccel2(2);
+
   } else  {
     // use matrix vector multip. for consistent mass matrix
     static Vector Raccel(12);
@@ -900,6 +901,10 @@ DispBeamColumn3d::getResistingForce()
   // Transform forces
   Vector p0Vec(p0, 5);
   P = crdTransf->getGlobalResistingForce(q, p0Vec);
+
+  // Subtract other external nodal loads ... P_res = P_int - P_ext
+  if (rho != 0)
+    P.addVector(1.0, Q, -1.0);
   
   return P;
 }
@@ -908,9 +913,6 @@ const Vector&
 DispBeamColumn3d::getResistingForceIncInertia()
 {
   P = this->getResistingForce();
-  
-  // Subtract other external nodal loads ... P_res = P_int - P_ext
-  P.addVector(1.0, Q, -1.0);
   
   if (rho != 0.0) {
     const Vector &accel1 = theNodes[0]->getTrialAccel();
@@ -1226,35 +1228,54 @@ DispBeamColumn3d::recvSelf(int commitTag, Channel &theChannel,
 void
 DispBeamColumn3d::Print(OPS_Stream &s, int flag)
 {
-  s << "\nDispBeamColumn3d, element id:  " << this->getTag() << endln;
-  s << "\tConnected external nodes:  " << connectedExternalNodes;
-  s << "\tCoordTransf: " << crdTransf->getTag() << endln;
-  s << "\tmass density:  " << rho << ", cMass: " << cMass << endln;
+	if (flag == OPS_PRINT_CURRENTSTATE) {
+		s << "\nDispBeamColumn3d, element id:  " << this->getTag() << endln;
+		s << "\tConnected external nodes:  " << connectedExternalNodes;
+		s << "\tCoordTransf: " << crdTransf->getTag() << endln;
+		s << "\tmass density:  " << rho << ", cMass: " << cMass << endln;
 
-  double N, Mz1, Mz2, Vy, My1, My2, Vz, T;
-  double L = crdTransf->getInitialLength();
-  double oneOverL = 1.0/L;
+		double N, Mz1, Mz2, Vy, My1, My2, Vz, T;
+		double L = crdTransf->getInitialLength();
+		double oneOverL = 1.0 / L;
 
-  N   = q(0);
-  Mz1 = q(1);
-  Mz2 = q(2);
-  Vy  = (Mz1+Mz2)*oneOverL;
-  My1 = q(3);
-  My2 = q(4);
-  Vz  = -(My1+My2)*oneOverL;
-  T   = q(5);
+		N = q(0);
+		Mz1 = q(1);
+		Mz2 = q(2);
+		Vy = (Mz1 + Mz2)*oneOverL;
+		My1 = q(3);
+		My2 = q(4);
+		Vz = -(My1 + My2)*oneOverL;
+		T = q(5);
 
-  s << "\tEnd 1 Forces (P Mz Vy My Vz T): "
-    << -N+p0[0] << ' ' << Mz1 << ' ' <<  Vy+p0[1] << ' ' << My1 << ' ' <<  Vz+p0[3] << ' ' << -T << endln;
-  s << "\tEnd 2 Forces (P Mz Vy My Vz T): "
-    <<  N << ' ' << Mz2 << ' ' << -Vy+p0[2] << ' ' << My2 << ' ' << -Vz+p0[4] << ' ' <<  T << endln;
+		s << "\tEnd 1 Forces (P Mz Vy My Vz T): "
+			<< -N + p0[0] << ' ' << Mz1 << ' ' << Vy + p0[1] << ' ' << My1 << ' ' << Vz + p0[3] << ' ' << -T << endln;
+		s << "\tEnd 2 Forces (P Mz Vy My Vz T): "
+			<< N << ' ' << Mz2 << ' ' << -Vy + p0[2] << ' ' << My2 << ' ' << -Vz + p0[4] << ' ' << T << endln;
+		s << "Number of sections: " << numSections << endln;
+		beamInt->Print(s, flag);
 
-  beamInt->Print(s, flag);
+		for (int i = 0; i < numSections; i++) {
+		  //opserr << "Section Type: " << theSections[i]->getClassTag() << endln;
+		  theSections[i]->Print(s,flag);
+		}
+		//  if (rho != 0)
+		//    opserr << "Mass: \n" << this->getMass();
+	}
 
-  for (int i = 0; i < numSections; i++) {
-    opserr << "Section Type: " << theSections[i]->getClassTag() << endln;
-    theSections[i]->Print(s,flag);
-  }
+	if (flag == OPS_PRINT_PRINTMODEL_JSON) {
+		s << "\t\t\t{";
+		s << "\"name\": " << this->getTag() << ", ";
+		s << "\"type\": \"DispBeamColumn3d\", ";
+		s << "\"nodes\": [" << connectedExternalNodes(0) << ", " << connectedExternalNodes(1) << "], ";
+		s << "\"sections\": [";
+		for (int i = 0; i < numSections - 1; i++)
+			s << "\"" << theSections[i]->getTag() << "\", ";
+		s << "\"" << theSections[numSections - 1]->getTag() << "\"], ";
+		s << "\"integration\": ";
+		beamInt->Print(s, flag);
+		s << ", \"massperlength\": " << rho << ", ";
+		s << "\"crdTransformation\": \"" << crdTransf->getTag() << "\"}";
+	}
 }
 
 
@@ -1327,15 +1348,15 @@ DispBeamColumn3d::setResponse(const char **argv, int argc, OPS_Stream &output)
     // local force -
     }  else if (strcmp(argv[0],"localForce") == 0 || strcmp(argv[0],"localForces") == 0) {
 
-      output.tag("ResponseType","N_ 1");
+      output.tag("ResponseType","N_1");
       output.tag("ResponseType","Vy_1");
       output.tag("ResponseType","Vz_1");
       output.tag("ResponseType","T_1");
       output.tag("ResponseType","My_1");
-      output.tag("ResponseType","Tz_1");
+      output.tag("ResponseType","Mz_1");
       output.tag("ResponseType","N_2");
-      output.tag("ResponseType","Py_2");
-      output.tag("ResponseType","Pz_2");
+      output.tag("ResponseType","Vy_2");
+      output.tag("ResponseType","Vz_2");
       output.tag("ResponseType","T_2");
       output.tag("ResponseType","My_2");
       output.tag("ResponseType","Mz_2");
@@ -1373,7 +1394,12 @@ DispBeamColumn3d::setResponse(const char **argv, int argc, OPS_Stream &output)
     theResponse =  new ElementResponse(this, 12, P);
 
   }   
+    else if (strcmp(argv[0],"integrationPoints") == 0)
+      theResponse = new ElementResponse(this, 10, Vector(numSections));
 
+    else if (strcmp(argv[0],"integrationWeights") == 0)
+      theResponse = new ElementResponse(this, 11, Vector(numSections));
+    
   // section response -
   else if (strstr(argv[0],"sectionX") != 0) {
       if (argc > 2) {
@@ -1450,7 +1476,12 @@ DispBeamColumn3d::setResponse(const char **argv, int argc, OPS_Stream &output)
 	}
       }
     }
- 
+	// by SAJalali
+	else if (strcmp(argv[0], "energy") == 0)
+  {
+  return new ElementResponse(this, 13, 0.0);
+  }
+
   output.endTag();
   return theResponse;
 }
@@ -1515,6 +1546,37 @@ DispBeamColumn3d::getResponse(int responseID, Information &eleInfo)
     return eleInfo.setVector(vp);
   }
 
+  else if (responseID == 10) {
+    double L = crdTransf->getInitialLength();
+    double pts[maxNumSections];
+    beamInt->getSectionLocations(numSections, L, pts);
+    Vector locs(numSections);
+    for (int i = 0; i < numSections; i++)
+      locs(i) = pts[i]*L;
+    return eleInfo.setVector(locs);
+  }
+
+  else if (responseID == 11) {
+    double L = crdTransf->getInitialLength();
+    double wts[maxNumSections];
+    beamInt->getSectionWeights(numSections, L, wts);
+    Vector weights(numSections);
+    for (int i = 0; i < numSections; i++)
+      weights(i) = wts[i]*L;
+    return eleInfo.setVector(weights);
+  }
+  //by SAJalali
+  else if (responseID == 13) {
+	  double xi[maxNumSections];
+	  double L = crdTransf->getInitialLength();
+	  beamInt->getSectionWeights(numSections, L, xi);
+	  double energy = 0;
+	  for (int i = 0; i < numSections; i++) {
+		  energy += theSections[i]->getEnergy()*xi[i] * L;
+	  }
+	  return eleInfo.setDouble(energy);
+  }
+
   else
     return -1;
 }
@@ -1574,7 +1636,7 @@ DispBeamColumn3d::setParameter(const char **argv, int argc, Parameter &param)
       return -1;
   }
   
-  else if (strstr(argv[0],"integration") != 0) {
+  if (strstr(argv[0],"integration") != 0) {
     
     if (argc < 2)
       return -1;
@@ -1584,7 +1646,7 @@ DispBeamColumn3d::setParameter(const char **argv, int argc, Parameter &param)
 
   // Default, send to every object
   int ok = 0;
-  int result = 0;
+  int result = -1;
 
   for (int i = 0; i < numSections; i++) {
     ok = theSections[i]->setParameter(argv, argc, param);

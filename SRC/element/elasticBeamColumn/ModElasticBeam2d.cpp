@@ -141,7 +141,7 @@ OPS_ModElasticBeam2d()
     numRemainingArgs = OPS_GetNumRemainingInputArgs();      
   }
 
-  CrdTransf *theTransf = OPS_GetCrdTransf(iData[3]);
+  CrdTransf *theTransf = OPS_getCrdTransf(iData[3]);
   if (theTransf == 0) {
     opserr << "WARNING error could not find a transformation with tag: " << iData[3] << "element ElasticBeamColumn2d " << eleTag << endln;
     return 0;
@@ -537,7 +537,7 @@ ModElasticBeam2d::addInertiaLoadToUnbalance(const Vector &accel)
   const Vector &Raccel2 = theNodes[1]->getRV(accel);
 	
   if (3 != Raccel1.Size() || 3 != Raccel2.Size()) {
-    opserr << "ModElasticBeam2d::addInertiaLoadToUnbalance matrix and vector sizes are incompatable\n";
+    opserr << "ModElasticBeam2d::addInertiaLoadToUnbalance matrix and vector sizes are incompatible\n";
     return -1;
   }
     
@@ -772,7 +772,9 @@ ModElasticBeam2d::Print(OPS_Stream &s, int flag)
     s << "EL_BEAM\t" << eleTag << "\t";
     s << 0 << "\t" << 0 << "\t" << connectedExternalNodes(0) << "\t" << connectedExternalNodes(1) ;
     s << "0\t0.0000000\n";
-  } else {
+  }
+  
+  if (flag == OPS_PRINT_CURRENTSTATE) {
     this->getResistingForce();
     s << "\nModElasticBeam2d: " << this->getTag() << endln;
     s << "\tConnected Nodes: " << connectedExternalNodes ;
@@ -787,6 +789,21 @@ ModElasticBeam2d::Print(OPS_Stream &s, int flag)
       << " " << V+p0[1] << " " << M1 << endln;
     s << "\tEnd 2 Forces (P V M): " << P
       << " " << -V+p0[2] << " " << M2 << endln;
+  }
+  
+  if (flag == OPS_PRINT_PRINTMODEL_JSON) {
+      s << "\t\t\t{";
+      s << "\"name\": " << this->getTag() << ", ";
+      s << "\"type\": \"ModElasticBeam2d\", ";
+      s << "\"nodes\": [" << connectedExternalNodes(0) << ", " << connectedExternalNodes(1) << "], ";
+      s << "\"E\": " << E << ", ";
+      s << "\"A\": " << A << ", ";
+      s << "\"Iz\": " << I << ", ";
+      s << "\"K11\": " << K11 << ", ";
+      s << "\"K33\": " << K33 << ", ";
+      s << "\"K44\": " << K44 << ", ";
+      s << "\"massperlength\": " << rho << ", ";
+      s << "\"crdTransformation\": \"" << theCoordTransf->getTag() << "\"}";
   }
 }
 

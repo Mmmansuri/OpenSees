@@ -60,6 +60,32 @@ void* OPS_ElasticSection2d()
     return new ElasticSection2d(tag,data[0],data[1],data[2]);
 }
 
+extern void* OPS_ElasticSection3d(void);
+extern void* OPS_ElasticShearSection2d(void);
+extern void* OPS_ElasticShearSection3d(void);
+
+void *OPS_ElasticSection(void)
+{
+  int numData = OPS_GetNumRemainingInputArgs();
+  void* theSec = 0;
+  int ndm = OPS_GetNDM();
+  if(ndm == 2) {
+    if(numData == 4) {
+      theSec = OPS_ElasticSection2d();
+    } else if(numData >=5) {
+      theSec = OPS_ElasticShearSection2d();
+    }
+  } else if(ndm == 3) {
+    if(numData == 7) {
+      theSec = OPS_ElasticSection3d();
+    } else if(numData >= 8) {
+      theSec = OPS_ElasticShearSection3d();
+    }
+  }
+  
+  return theSec;
+}
+
 ElasticSection2d::ElasticSection2d(void)
 :SectionForceDeformation(0, SEC_TAG_Elastic2d),
  E(0.0), A(0.0), I(0.0), e(2)
@@ -249,11 +275,22 @@ ElasticSection2d::recvSelf(int commitTag, Channel &theChannel,
 void
 ElasticSection2d::Print(OPS_Stream &s, int flag)
 {
-  s << "ElasticSection2d, tag: " << this->getTag() << endln;
-  s << "\tE: " << E << endln;
-  s << "\tA: " << A << endln;
-  s << "\tI: " << I << endln;
-}
+  if (flag == OPS_PRINT_PRINTMODEL_SECTION) {
+    s << "ElasticSection2d, tag: " << this->getTag() << endln;
+    s << "\tE: " << E << endln;
+    s << "\tA: " << A << endln;
+    s << "\tI: " << I << endln;
+  }
+  
+  if (flag == OPS_PRINT_PRINTMODEL_JSON) {
+    s << "\t\t\t{";
+	s << "\"name\": \"" << this->getTag() << "\", ";
+	s << "\"type\": \"ElasticSection2d\", ";
+    s << "\"E\": " << E << ", ";
+    s << "\"A\": " << A << ", ";
+    s << "\"Iz\": " << I << "}";
+  }
+}  
 
 int
 ElasticSection2d::setParameter(const char **argv, int argc, Parameter &param)

@@ -1,4 +1,4 @@
- /* ****************************************************************** **
+/* ****************************************************************** **
  **    OpenSees - Open System for Earthquake Engineering Simulation    **
  **          Pacific Earthquake Engineering Research Center            **
  **                                                                    **
@@ -53,13 +53,20 @@
  #include <NormElementRecorder.h>
  #include <NormEnvelopeElementRecorder.h>
  #include <PVDRecorder.h>
-
+ #include <MPCORecorder.h>
+ #include <GmshRecorder.h>
+ #include <VTK_Recorder.h>
 extern void* OPS_PVDRecorder();
+extern void* OPS_GmshRecorder();
+extern void* OPS_MPCORecorder();
+extern void* OPS_VTK_Recorder();
+
 
  #include <NodeIter.h>
  #include <ElementIter.h>
  #include <Node.h>
  #include <Element.h>
+#include <Parameter.h>
  #include <DamageModel.h>
  #include <DamageRecorder.h>
  #include <MeshRegion.h>
@@ -1049,7 +1056,9 @@ enum outputMode  {STANDARD_STREAM, DATA_STREAM, XML_STREAM, DATABASE_STREAM, BIN
        }    
 
        // AddingSensitivity:BEGIN ///////////////////////////////////
-       int sensitivity = 0;
+       //int sensitivity = 0;
+       int paramTag = 0;
+       int gradIndex = -1;
        // AddingSensitivity:END /////////////////////////////////////
 
        TCL_Char *responseID = 0;
@@ -1315,11 +1324,19 @@ enum outputMode  {STANDARD_STREAM, DATA_STREAM, XML_STREAM, DATABASE_STREAM, BIN
  // AddingSensitivity:BEGIN //////////////////////////////////////
 	 else if (strcmp(argv[pos],"-sensitivity") == 0) {
 		 pos++;
-		 if (Tcl_GetInt(interp, argv[pos], &sensitivity) != TCL_OK) {
-			 opserr << "ERROR: Invalid gradient number to node recorder." << endln;
+		 if (Tcl_GetInt(interp, argv[pos], &paramTag) != TCL_OK) {
+			 opserr << "ERROR: Invalid parameter tag to node recorder." << endln;
 			 return TCL_ERROR;
 		 }
 		 pos++;
+
+		 // Now get gradIndex from parameter tag
+		 Parameter *theParameter = theDomain.getParameter(paramTag);
+		 if (theParameter == 0) {
+		   opserr << "NodeRecorder: parameter " << paramTag << " not found" << endln;
+		   return TCL_ERROR;
+		 }
+		 gradIndex = theParameter->getGradIndex();
 	 }
  // AddingSensitivity:END ////////////////////////////////////////
 	 else	 
@@ -1371,7 +1388,7 @@ enum outputMode  {STANDARD_STREAM, DATA_STREAM, XML_STREAM, DATABASE_STREAM, BIN
 
 	 (*theRecorder) = new NodeRecorder(theDofs, 
 					   theNodes, 
-					   sensitivity,
+					   gradIndex,
 					   responseID, 
 					   theDomain, 
 					   *theOutputStream, 
@@ -1819,11 +1836,30 @@ enum outputMode  {STANDARD_STREAM, DATA_STREAM, XML_STREAM, DATABASE_STREAM, BIN
 								    displayRecord, fileName);
 	 (*theRecorder) = thePlotter;
  #endif
-     } else if (strcmp(argv[1],"pvd") == 0 || strcmp(argv[1],"PVD") == 0) {
-	 OPS_ResetInputNoBuilder(clientData, interp, 2, argc, argv, &theDomain);
-	 (*theRecorder) = (Recorder*) OPS_PVDRecorder();
+     } 
+     else if (strcmp(argv[1],"pvd") == 0 || strcmp(argv[1],"PVD") == 0) {
+       OPS_ResetInputNoBuilder(clientData, interp, 2, argc, argv, &theDomain);
+       (*theRecorder) = (Recorder*) OPS_PVDRecorder();
      }
-     
+     else if (strcmp(argv[1],"vtk") == 0 || strcmp(argv[1],"VTK") == 0) {
+       OPS_ResetInputNoBuilder(clientData, interp, 2, argc, argv, &theDomain);
+       (*theRecorder) = (Recorder*) OPS_VTK_Recorder();
+     }
+     else if (strcmp(argv[1], "mpco") == 0) {
+       OPS_ResetInputNoBuilder(clientData, interp, 2, argc, argv, &theDomain);
+       (*theRecorder) = (Recorder*)OPS_MPCORecorder();
+       if (theRecorder == 0) {
+	 return TCL_ERROR;
+       }
+     }
+     else if (strcmp(argv[1],"gmsh") == 0 || strcmp(argv[1],"GMSH") == 0) {
+       OPS_ResetInputNoBuilder(clientData, interp, 2, argc, argv, &theDomain);
+       (*theRecorder) = (Recorder*) OPS_GmshRecorder();
+     }
+    // else if (strcmp(argv[1],"gmshparallel") == 0 || strcmp(argv[1],"GMSHPARALLEL") == 0) {
+    //  OPS_ResetInputNoBuilder(clientData, interp, 2, argc, argv, &theDomain);
+    //  (*theRecorder) = (Recorder*) OPS_GmshRecorderParallel();
+    //  }
 
      /* *****************************************
      else if (strcmp(argv[1],"GSA") == 0) {
@@ -1993,19 +2029,27 @@ TclAddRecorder(ClientData clientData, Tcl_Interp *interp, int argc,
   TclCreateRecorder(clientData, interp, argc, argv, theDomain, &theRecorder);
   
   if (theRecorder == 0) {
-      sprintf(interp->result,"-1");
-      return TCL_ERROR;
+
+    char buffer[] = "-1";
+    Tcl_SetResult(interp, buffer, TCL_VOLATILE);
+    //sprintf(interp->result,"-1");
+    return TCL_ERROR;
   }
 
   if ((theDomain.addRecorder(*theRecorder)) < 0) {
     opserr << "WARNING could not add to domain - recorder " << argv[1]<< endln;
     delete theRecorder;
-    sprintf(interp->result,"-1");
+    char buffer[] = "-1";
+    Tcl_SetResult(interp, buffer, TCL_VOLATILE);
+    //    sprintf(interp->result,"-1");
     return TCL_ERROR;
   } 
   
   int recorderTag = theRecorder->getTag();
-  sprintf(interp->result,"%d",recorderTag);
+  char buffer[30];
+  sprintf(buffer,"%d",recorderTag);
+  Tcl_SetResult(interp, buffer, TCL_VOLATILE);
+  //  sprintf(interp->result,"%d",recorderTag);
   
   return TCL_OK;
 }
@@ -2021,7 +2065,9 @@ TclAddAlgorithmRecorder(ClientData clientData, Tcl_Interp *interp, int argc,
   TclCreateRecorder(clientData, interp, argc, argv, theDomain, &theRecorder);
   
   if (theRecorder == 0) {
-    sprintf(interp->result,"-1");
+    char buffer[] = "-1";
+    Tcl_SetResult(interp, buffer, TCL_VOLATILE);
+    //    sprintf(interp->result,"-1");
     return TCL_ERROR;
   } 
 
@@ -2037,7 +2083,10 @@ TclAddAlgorithmRecorder(ClientData clientData, Tcl_Interp *interp, int argc,
   }
 
   int recorderTag = theRecorder->getTag();
-  sprintf(interp->result,"%d",recorderTag);    
+  char buffer[30];
+  sprintf(buffer,"%d",recorderTag);    
+  Tcl_SetResult(interp, buffer, TCL_VOLATILE);
+
   return TCL_OK;
 }
 

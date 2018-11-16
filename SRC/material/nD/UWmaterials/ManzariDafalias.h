@@ -29,6 +29,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <iostream>
+#include <fstream>
 
 #include <NDMaterial.h>
 #include <Matrix.h>
@@ -52,11 +54,15 @@ class ManzariDafalias : public NDMaterial
     // full constructor
     ManzariDafalias(int tag, int classTag, double G0, double nu, double e_init, double Mc, double c, double lambda_c, double e0, double ksi,
 					double P_atm, double m, double h0, double ch, double nb, double A0, double nd, double z_max, double cz, double mDen, 
-					int integrationScheme = 2, int tangentType = 2, int JacoType = 1, double TolF = 1.0e-7, double TolR = 1.0e-7);
+					int integrationScheme = 1, int tangentType = 0, int JacoType = 1, double TolF = 1.0e-7, double TolR = 1.0e-7);
     // full constructor
     ManzariDafalias(int tag, double G0, double nu, double e_init, double Mc, double c, double lambda_c, double e0, double ksi,
 					double P_atm, double m, double h0, double ch, double nb, double A0, double nd, double z_max, double cz, double mDen, 
 					int integrationScheme = 2, int tangentType = 2, int JacoType = 1, double TolF = 1.0e-7, double TolR = 1.0e-7);
+    
+    //specific type null constructor
+    ManzariDafalias(int classTag);
+
     // null constructor
     ManzariDafalias();
     // destructor
@@ -94,6 +100,10 @@ class ManzariDafalias : public NDMaterial
 	double getRho(void) {return massDen;};
 	double getVoidRatio(void) {return mVoidRatio;};
 	int    getNumIterations(void) {return mIter;};
+
+	virtual const Vector& getEStrain();
+	virtual const Vector& getPStrain();
+
 
   protected:
 
@@ -139,7 +149,6 @@ class ManzariDafalias : public NDMaterial
 	double massDen;     // mass density for dynamic analysis
 	double mVoidRatio;	// material void ratio
 
-	double	mEpsStar, mSigStar; // used to regularize the jacobian
 	double	mTolF;			// max drift from yield surface
 	double	mTolR;			// tolerance for Newton iterations
 	char unsigned mIter;	// number of iterations
@@ -147,10 +156,11 @@ class ManzariDafalias : public NDMaterial
 	char unsigned mScheme;	// 0: Forward Euler Explicit, 1: Backward Euler Implicit, 2: Backward Euler Implicit with considerations for stability, 
 														// 3: FE Explicit with constrained strain increment
 	char unsigned mTangType;// 0: Elastic Tangent, 1: Contiuum ElastoPlastic Tangent, 2: Consistent ElastoPlastic Tangent
-	char unsigned mOrgTangType;
+	bool    mUseElasticTan;
+        bool    mStressCorrectionInUse;
 	double	mEPS;			// machine epsilon (for FD jacobian)
 	double	m_Pmin;			// Minimum allowable mean effective stress
-	bool	m_isSmallp;		// flag for small p
+    double  m_Presidual;    // small residual pressure (due to cohesion)
 	static char unsigned mElastFlag;	// 1: enforce elastic response
 
 	static Vector mI1;			// 2nd Order Identity Tensor
@@ -241,6 +251,10 @@ class ManzariDafalias : public NDMaterial
 					const Vector& CurAlpha, const Vector& CurFabric, const Vector& alpha_in, const Vector& NextStrain,
 					Vector& NextElasticStrain, Vector& NextStress, Vector& NextAlpha, Vector& NextFabric,
 					double& NextDGamma, double& NextVoidRatio,  double& G, double& K, Matrix& aC, Matrix& aCep, Matrix& aCep_Consistent) ;
+	void	RungeKutta45(const Vector& CurStress, const Vector& CurStrain, const Vector& CurElasticStrain,
+					const Vector& CurAlpha, const Vector& CurFabric, const Vector& alpha_in, const Vector& NextStrain,
+					Vector& NextElasticStrain, Vector& NextStress, Vector& NextAlpha, Vector& NextFabric,
+					double& NextDGamma, double& NextVoidRatio,  double& G, double& K, Matrix& aC, Matrix& aCep, Matrix& aCep_Consistent) ;  // By J.Abell @ UANDES - After Sloan
 	int		BackwardEuler_CPPM(const Vector& CurStress, const Vector& CurStrain, const Vector& CurElasticStrain,
 					const Vector& CurAlpha, const Vector& CurFabric, const Vector& alpha_in, const Vector& NextStrain,
 					Vector& NextElasticStrain, Vector& NextStress, Vector& NextAlpha, Vector& NextFabric,
@@ -260,7 +274,10 @@ class ManzariDafalias : public NDMaterial
 	int		NewtonSol(const Vector& x, const Vector &inVar, Vector& del, Matrix& Cep);
 	int		NewtonIter3(const Vector& xo, const Vector& inVar, Vector& sol, Matrix& aCepPart);
 	int		NewtonSol2(const Vector& x, const Vector &inVar, Vector& res, Vector& JRes, Vector& del, Matrix& Cep);
+	int		NewtonIter2_negP(const Vector& xo, const Vector& inVar, Vector& sol, Matrix& aCepPart);
+	int		NewtonSol_negP(const Vector &xo, const Vector &inVar, Vector& del, Matrix& Cep);
 	Vector  NewtonRes(const Vector &xo, const Vector &inVar);
+	Vector  NewtonRes_negP(const Vector &xo, const Vector &inVar);
 	Vector	GetResidual(const Vector& x, const Vector& inVar);
 	Matrix	GetJacobian(const Vector &x, const Vector &inVar);
 	Matrix	GetFDMJacobian(const Vector &delta, const Vector &inVar);
@@ -269,8 +286,6 @@ class ManzariDafalias : public NDMaterial
 	Vector	SetManzariStateInVar(const Vector& nStrain, const Vector& cStrain, const Vector& cStress, 
 				const Vector& cEStrain, const Vector& cAlpha, const Vector& cFabric,
 				const double& cVoidRatio, const double& nVoidRatio, const Vector& Alpha_in);
-	Vector	NormalizeJacobian(Matrix& Jaco);
-	void	DenormalizeJacobian(Matrix& JInv, const Vector& norms);
 	double	machineEPS();
 	// Material Specific Methods
 	double	Macauley(double x);
@@ -296,6 +311,7 @@ class ManzariDafalias : public NDMaterial
 				const Vector& n, const Vector& d, const Vector& b) ;
 	Vector	GetNormalToYield(const Vector &stress, const Vector &alpha);
 	int	Check(const Vector& TrialStress, const Vector& stress, const Vector& CurAlpha, const Vector& NextAlpha);
+        int     Elastic2Plastic();
 
 	// Symmetric Tensor Operations
 	double GetTrace(const Vector& v);
@@ -315,15 +331,11 @@ class ManzariDafalias : public NDMaterial
 	Matrix Trans_SingleDot4T_2(const Matrix& m1, const Vector& v1);
 	double Det(const Vector& aV);
 	Vector Inv(const Vector& aV);
+	Vector ToContraviant(const Vector& v1);
+	Vector ToCovariant(const Vector& v1);
+	Matrix ToContraviant(const Matrix& m1);
+	Matrix ToCovariant(const Matrix& m1);
 
 };
-
-// Other auxillary functions
-double MatrixMax_Rows(const Matrix& mat, int rowNo);
-double MatrixMax_Cols(const Matrix& mat, int colNo);
-double MatrixMin_Rows(const Matrix& mat, int rowNo);
-double MatrixMin_Cols(const Matrix& mat, int colNo);
-double Sgn(const double& x);
-double VectorMax(const Vector& v);
 
 #endif

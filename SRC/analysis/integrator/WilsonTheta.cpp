@@ -184,7 +184,11 @@ int WilsonTheta::formEleTangent(FE_Element *theEle)
         theEle->addKtToTang(c1);
     else if (statusFlag == INITIAL_TANGENT)
         theEle->addKiToTang(c1);
-    
+    else if (statusFlag == HALL_TANGENT)  {
+        theEle->addKtToTang(c1*cFactor);
+        theEle->addKiToTang(c1*iFactor);   
+    }
+ 
     theEle->addCtoTang(c2);
     theEle->addMtoTang(c3);
     
@@ -320,7 +324,7 @@ int WilsonTheta::update(const Vector &deltaU)
     
     // check deltaU is of correct size
     if (deltaU.Size() != U->Size())  {
-        opserr << "WARNING WilsonTheta::update() - Vectors of incompatable size ";
+        opserr << "WARNING WilsonTheta::update() - Vectors of incompatible size ";
         opserr << " expecting " << U->Size() << " obtained " << deltaU.Size() << endln;
         return -3;
     }
@@ -380,6 +384,12 @@ int WilsonTheta::commit(void)
     return theModel->commitDomain();
 }
 
+
+const Vector &
+WilsonTheta::getVel()
+{
+  return *Udot;
+}
 
 int WilsonTheta::sendSelf(int cTag, Channel &theChannel)
 {

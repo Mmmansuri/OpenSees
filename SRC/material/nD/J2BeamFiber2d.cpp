@@ -309,7 +309,7 @@ J2BeamFiber2d::getStress (void)
     static Vector dx(3);
 
     int iter = 0; int maxIter = 25;
-    while (iter < maxIter && R.Norm()/F > sigmaY*1.0e-14) {
+    while (iter < maxIter && R.Norm() > sigmaY*1.0e-14) {
         iter++;
 
         J(0,0) = 1.0 + dg*two3*(E+Hkin); J(0,1) = 0.0;

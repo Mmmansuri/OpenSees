@@ -183,7 +183,7 @@ int OPS_GetIntInput(int *numData, int*data)
 
   for (int i=0; i<size; i++) {
     if ((currentArg >= maxArg) || (Tcl_GetInt(theInterp, currentArgv[currentArg], &data[i]) != TCL_OK)) {    
-      opserr << "OPS_GetIntInput -- error reading " << currentArg << endln;
+      //opserr << "OPS_GetIntInput -- error reading " << currentArg << endln;
       return -1;
     }
     else
@@ -194,12 +194,24 @@ int OPS_GetIntInput(int *numData, int*data)
 }
 
 extern "C" 
+int OPS_SetIntOutput(int *numData, int *data, bool scalar)
+{
+    int numArgs = *numData;
+    char buffer[40];
+    for (int i=0; i<numArgs; i++) {
+	sprintf(buffer, "%d ", data[i]);
+	Tcl_AppendResult(theInterp, buffer, NULL);
+    }
+  return 0;  
+}
+
+extern "C"
 int OPS_GetDoubleInput(int *numData, double *data)
 {
   int size = *numData;
   for (int i=0; i<size; i++) {
     if ((currentArg >= maxArg) || (Tcl_GetDouble(theInterp, currentArgv[currentArg], &data[i]) != TCL_OK)) {    
-      opserr << "OPS_GetDoubleInput -- error reading " << currentArg << endln;
+      //opserr << "OPS_GetDoubleInput -- error reading " << currentArg << endln;
       return -1;
     }
     else
@@ -208,6 +220,17 @@ int OPS_GetDoubleInput(int *numData, double *data)
   return 0;  
 }
 
+extern "C" 
+int OPS_SetDoubleOutput(int *numData, double *data, bool scalar)
+{
+    int numArgs = *numData;
+    char buffer[40];
+    for (int i=0; i<numArgs; i++) {
+	sprintf(buffer, "%35.20f ", data[i]);
+	Tcl_AppendResult(theInterp, buffer, NULL);
+    }
+  return 0;  
+}
 
 
 extern "C" 
@@ -225,6 +248,12 @@ const char * OPS_GetString(void)
   return res;
 }
 
+extern "C" 
+int OPS_SetString(const char* str)
+{
+  Tcl_SetResult(theInterp, (char*)str, TCL_VOLATILE);
+  return 0;
+}
 
 int OPS_GetStringCopy(char **arrayData)
 {
@@ -648,19 +677,19 @@ int OPS_GetNodeVel(int *nodeTag, int *sizeData, double *data)
 }
 
 extern "C" 
-int OPS_GetNodeAcc(int *nodeTag, int *sizeData, double *data)
+int OPS_GetNodeAccel(int *nodeTag, int *sizeData, double *data)
 {
    Node *theNode = theDomain->getNode(*nodeTag);
 
   if (theNode == 0) {
-    opserr << "OPS_GetNodeAcc - no node with tag " << *nodeTag << endln;
+    opserr << "OPS_GetNodeAccel - no node with tag " << *nodeTag << endln;
     return -1;
   }
   int size = *sizeData;
   const Vector &accel = theNode->getTrialAccel();
 
   if (accel.Size() != size) {
-    opserr << "OPS_GetNodeAcc - accel size mismatch\n";
+    opserr << "OPS_GetNodeAccel - accel size mismatch\n";
     return -1;
   }
   for (int i=0; i < size; i++) 
@@ -1086,4 +1115,9 @@ ConvergenceTest **OPS_GetTest(void)
 bool *OPS_builtModel(void)
 {
 	return &builtModel;
+}
+
+int OPS_numIter()
+{
+    return 0;
 }

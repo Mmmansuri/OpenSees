@@ -101,24 +101,33 @@ Vector::Vector(double *data, int size)
 Vector::Vector(const Vector &other)
 : sz(other.sz),theData(0),fromFree(0)
 {
-#ifdef _G3DEBUG
-  if (sz < 0) {
-    opserr << "Vector::Vector(int) - size " << sz << " specified <= 0\n";
-    sz = 1;
+  if (sz != 0) {
+    theData = new (nothrow) double [other.sz];    
+    
+    if (theData == 0) {
+      opserr << "Vector::Vector(int) - out of memory creating vector of size " << sz << endln;
+    }
   }
-#endif
-
-  //  theData = (double *)malloc(other.sz*sizeof(double));    
-  theData = new (nothrow) double [other.sz];    
-  
-  if (theData == 0) {
-    opserr << "Vector::Vector(int) - out of memory creating vector of size " << sz << endln;
-  }
-
   // copy the component data
   for (int i=0; i<sz; i++)
     theData[i] = other.theData[i];
 }	
+
+
+
+// Vector(const Vector&):
+//  Move constructor
+#ifdef USE_CXX11   
+Vector::Vector(Vector &&other)
+: sz(other.sz),theData(other.theData),fromFree(0)
+{
+  //opserr << "move ctor!\n";
+  other.theData = 0;
+  other.sz = 0;
+} 
+#endif
+
+
 
 
 // ~Vector():
@@ -126,15 +135,14 @@ Vector::Vector(const Vector &other)
 
 Vector::~Vector()
 {
-  if (sz != 0 && fromFree == 0) 
+  if (theData != 0 && fromFree == 0) 
     delete [] theData;
-  //  free((void *)theData);
 }
 
 
 int 
 Vector::setData(double *newData, int size){
-  if (sz != 0 && fromFree == 0) 
+  if (theData != 0 && fromFree == 0) 
     delete [] theData;      
   sz = size;
   theData = newData;
@@ -163,7 +171,7 @@ Vector::resize(int newSize){
   else if (newSize > sz) {
 
     // delete the old array
-    if (sz != 0 && fromFree == 0) 
+    if (theData != 0 && fromFree == 0) 
 	delete [] theData;
     sz = 0;
     fromFree = 0;
@@ -642,7 +650,7 @@ Vector::operator[](int x)
     for (int j=sz; j<x; j++)
       dataNew[j] = 0.0;
     
-    if (fromFree == 1)
+    if (fromFree == 0)
       if (theData != 0)
 	delete [] theData;
 
@@ -740,6 +748,27 @@ Vector::operator=(const Vector &V)
 
   return *this;
 }
+
+// Move assignment operator.  
+#ifdef USE_CXX11   
+Vector &
+Vector::operator=(Vector &&V) 
+{
+  // first check we are not trying v = v
+  if (this != &V) {
+    // opserr << "move assign!\n";
+    if (this->theData != 0) delete [] this->theData;
+    theData = V.theData;
+    this->sz = V.sz;
+    V.theData = 0;
+    V.sz = 0;
+  }
+  return *this;
+}
+#endif
+
+
+
 
 
 // Vector &operator+=(double fact):

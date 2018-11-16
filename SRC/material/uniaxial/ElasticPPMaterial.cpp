@@ -89,7 +89,8 @@ ElasticPPMaterial::ElasticPPMaterial(int tag, double e, double eyp)
  trialStrain(0.0), trialStress(0.0), trialTangent(E),
  commitStrain(0.0), commitStress(0.0), commitTangent(E)
 {
-  fyp = E*eyp;
+	EnergyP = 0;	//by SAJalali
+	fyp = E*eyp;
   fyn = -fyp;
 }
 
@@ -108,7 +109,8 @@ ElasticPPMaterial::ElasticPPMaterial(int tag, double e, double eyp,
 	opserr << "ElasticPPMaterial::ElasticPPMaterial() - eyn > 0, setting < 0\n";
 	eyn *= -1.;
     }    
-    
+	EnergyP = 0;	//by SAJalali
+
     fyp = E*eyp;
     fyn = E*eyn;
 }
@@ -119,6 +121,7 @@ ElasticPPMaterial::ElasticPPMaterial()
  trialStrain(0.0), trialStress(0.0), trialTangent(0.0),
  commitStrain(0.0), commitStress(0.0), commitTangent(0.0)
 {
+	EnergyP = 0;	//by SAJalali
 
 }
 
@@ -218,6 +221,9 @@ ElasticPPMaterial::commitState(void)
       }
     }
 
+	//added by SAJalali for energy recorder
+	EnergyP += 0.5*(commitStress + trialStress)*(trialStrain - commitStrain);
+
     commitStrain = trialStrain;
     commitTangent=trialTangent;
     commitStress = trialStress;
@@ -245,7 +251,8 @@ ElasticPPMaterial::revertToStart(void)
   trialStress = commitStress = 0.0;
 
   ep = 0.0;
-  
+  EnergyP = 0;	//by SAJalali
+
   return 0;
 }
 
@@ -293,7 +300,7 @@ ElasticPPMaterial::recvSelf(int cTag, Channel &theChannel,
   if (res < 0) 
     opserr << "ElasticPPMaterial::recvSelf() - failed to recv data\n";
   else {
-    this->setTag(data(0));
+    this->setTag(int(data(0)));
     ep    = data(1);
     E     = data(2);
     ezero = data(3);
@@ -313,10 +320,22 @@ ElasticPPMaterial::recvSelf(int cTag, Channel &theChannel,
 void 
 ElasticPPMaterial::Print(OPS_Stream &s, int flag)
 {
-    s << "ElasticPP tag: " << this->getTag() << endln;
-    s << "  E: " << E << endln;
-    s << "  ep: " << ep << endln;
-    s << "  Otress: " << trialStress << " tangent: " << trialTangent << endln;
+	if (flag == OPS_PRINT_PRINTMODEL_MATERIAL) {
+		s << "ElasticPPMaterial tag: " << this->getTag() << endln;
+		s << "  E: " << E << endln;
+		s << "  ep: " << ep << endln;
+		s << "  stress: " << trialStress << " tangent: " << trialTangent << endln;
+	}
+    
+	if (flag == OPS_PRINT_PRINTMODEL_JSON) {
+		s << "\t\t\t{";
+		s << "\"name\": \"" << this->getTag() << "\", ";
+		s << "\"type\": \"ElasticPPMaterial\", ";
+		s << "\"E\": " << E << ", ";
+		s << "\"epsyp\": " << fyp/E << ", ";
+		s << "\"epsyn\": " << fyn/E << ", ";
+		s << "\"eps0\": " << ezero << "}";
+	}
 }
 
 
