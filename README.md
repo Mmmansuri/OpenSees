@@ -33,6 +33,20 @@ The implementation is intended for researchers and engineers interested in the
 numerical modelling of damage-avoidance and resilience-based seismic design
 solutions within the OpenSees framework.
 
+## Characteristic behaviour
+
+![Characteristic flag-shaped response of the material](assets/flag_shape.png)
+
+*Schematic of the model's characteristic response (representative parameters, not raw
+OpenSees output).* Panel (a) shows the symmetric **flag-shaped** hysteresis: an elastic
+branch (`k1`) up to the activation force (`ActF`), an **upper** post-activation branch
+(`k2`) and a **lower edge** (`k3`), separated by a flag whose width is set by `beta`
+(the enclosed area is the dissipated energy). The loop returns to the origin — i.e.
+self-centring with no residual deformation. Panel (b) shows the backbone stages: after
+the slip threshold (`SlipDef`) the force plateaus at `SlipF`, and beyond the bolt-bearing
+threshold (`BearDef`) the response stiffens with slope `rBear·k1`, which introduces
+permanent (residual) deformation on unloading.
+
 ## Usage
 
 ```tcl
