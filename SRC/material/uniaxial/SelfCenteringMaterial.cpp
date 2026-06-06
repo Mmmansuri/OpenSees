@@ -23,7 +23,7 @@
 // $Source: /usr/local/cvs/OpenSees/SRC/material/uniaxial/SelfCenteringMaterial.cpp,v $
 
 // Written: Mansuri
-// Created: 2019
+// Created: 2019, checked:2026
 // Revision: A
 //
 // Description: This file contains the class implementation for 

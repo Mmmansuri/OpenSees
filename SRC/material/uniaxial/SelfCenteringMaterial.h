@@ -17,7 +17,7 @@
 **   Filip C. Filippou (filippou@ce.berkeley.edu)                     **
 **                                                                    **
 ** ****************************************************************** */
-
+// Checked:2026
 // $Revision: 1.2 $
 // $Date: 2020-03-09 22:27:16 $
 // $Source: /usr/local/cvs/OpenSees/SRC/material/uniaxial/SelfCenteringMaterial.h,v $
